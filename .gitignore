@@ -1,0 +1,10 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+data/raw/*.csv
+data/processed/*.csv
+results/tables/*.csv
+results/figures/*.png
+reports/*.docx
+reports/*.pptx
+reports/*.md
