@@ -78,13 +78,7 @@ def _table(slide, df, x, y, w, size=12):
                 p.font.bold = i == 0
 
 
-def build(paths=config.PATHS):
-    r = load_results(paths)
-    f = findings(r)
-    fig = lambda n: paths.figures / n
-    prs = Presentation()
-    prs.slide_width, prs.slide_height = W, H
-
+def _title_slide(prs):
     s = prs.slides.add_slide(prs.slide_layouts[6])
     s.background.fill.solid()
     s.background.fill.fore_color.rgb = BG
@@ -99,6 +93,36 @@ def build(paths=config.PATHS):
         INK,
         True,
     )
+
+
+def _bullets(slide, lines, x=Inches(7.6), w=Inches(5.2), size=18):
+    _text(slide, lines, x, Inches(1.8), w, Inches(4.5), size)
+
+
+def _diagnosis_lines(r):
+    lines = []
+    link = r["regime_link"]
+    spy = link[link["Asset"] == "SPY"].set_index("Window")
+    if {"initial_window", "after"} <= set(spy.index):
+        lines.append(
+            "SPY stress-to-return correlation: "
+            f"{spy.at['initial_window', 'CorrStressNextRet']:+.2f} in the initial window, "
+            f"{spy.at['after', 'CorrStressNextRet']:+.2f} afterwards"
+        )
+    summ = r["ic_summary"]
+    for name, row in summ.iterrows():
+        lines.append(f"{name.replace('_', ' ')}: mean IC {row['MeanIC']:+.3f}")
+    return lines
+
+
+def build(paths=config.PATHS):
+    r = load_results(paths)
+    f = findings(r)
+    sm = r["summary"]
+    fig = lambda n: paths.figures / n
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = W, H
+    _title_slide(prs)
 
     s = _slide(prs, "Research question")
     _text(
@@ -132,71 +156,108 @@ def build(paths=config.PATHS):
 
     s = _slide(prs, "Regime detection")
     _image(s, fig("03_regime_validation.png"), Inches(0.9), Inches(1.6), Inches(6.3))
-    _text(
+    _bullets(
         s,
         [
-            f"Walk-forward HMM, no look-ahead",
+            "Walk-forward HMM, no look-ahead",
             f"Stress windows flagged: {f['hmm_stress']:.0%}",
             f"Calm controls flagged: {f['hmm_calm']:.0%}",
             f"Volatility rule: {f['vol_stress']:.0%} and {f['vol_calm']:.0%}",
         ],
-        Inches(7.6),
-        Inches(1.8),
-        Inches(5.2),
-        Inches(4),
-        20,
+        size=20,
     )
 
     s = _slide(prs, "Forecasting skill")
-    _image(s, fig("04_model_ic.png"), Inches(0.9), Inches(1.6), Inches(7.2))
-    _text(
+    _image(s, fig("11_forecast_skill.png"), Inches(0.6), Inches(1.6), Inches(8.2))
+    _bullets(
         s,
         [
             f"Mean stacked IC: {f['mean_ic']:.3f}",
-            f"Significant at 5%: {f['sig_assets']} of {f['n_assets']} assets",
-            f"Ensemble beats mean single model: {f['ens_beats']} of {f['n_assets']}",
+            f"Significantly negative IC: {f['sig_neg']} of {f['n_assets']} assets",
+            f"Significantly positive IC: {f['sig_pos']} of {f['n_assets']} assets",
+            f"R2 below the historical mean on {f['r2_neg_assets']} of {f['n_assets']} assets",
+            f"Hit rate below always-up baseline: {f['hit_below_base']} of {f['n_assets']}",
         ],
-        Inches(8.5),
-        Inches(1.8),
-        Inches(4.4),
-        Inches(4),
-        20,
+        x=Inches(9.1),
+        w=Inches(3.9),
+        size=16,
     )
+
+    s = _slide(prs, "Diagnosing the negative IC")
+    _image(s, fig("12_ic_diagnostics.png"), Inches(0.6), Inches(1.6), Inches(7.6))
+    _bullets(s, _diagnosis_lines(r), x=Inches(8.6), w=Inches(4.3), size=15)
 
     s = _slide(prs, "Portfolio performance")
     cols = ["AnnReturn", "AnnVol", "Sharpe", "MaxDrawdown"]
-    _table(s, r["summary"][cols], Inches(0.9), Inches(1.7), Inches(11.5), 13)
+    _table(s, sm[cols], Inches(0.9), Inches(1.5), Inches(11.5), 12)
 
     s = _slide(prs, "Cumulative returns")
     _image(s, fig("07_cumulative_returns.png"), Inches(2.2), Inches(1.6), Inches(8.6))
 
     s = _slide(prs, "Statistical significance")
     _image(s, fig("09_sharpe_significance.png"), Inches(0.9), Inches(1.6), Inches(6.3))
-    _text(
+    _bullets(
         s,
-        [f"Regime ablation: {f['ablation']}", f["stress_cvar"]],
-        Inches(7.6),
-        Inches(1.8),
-        Inches(5.2),
-        Inches(4),
-        18,
+        [f"Regime ablation, Sharpe difference: {f['ablation']}", f["stress_cvar"]],
+        size=16,
     )
+
+    s = _slide(prs, "Overlay ablation")
+    _image(s, fig("14_overlay_ablation.png"), Inches(0.6), Inches(1.6), Inches(8.2))
+    lines = []
+    if {"Regime_60_40", "Static_60_40"} <= set(sm.index):
+        lines += [
+            f"Same stress rule on 60/40: Sharpe {sm.at['Regime_60_40', 'Sharpe']:.2f} against {sm.at['Static_60_40', 'Sharpe']:.2f}",
+            f"Max drawdown {sm.at['Regime_60_40', 'MaxDrawdown']:.1%} against {sm.at['Static_60_40', 'MaxDrawdown']:.1%}",
+        ]
+    if config.NAIVE in sm.index:
+        lines.append(
+            f"Naive historical-mean views: Sharpe {sm.at[config.NAIVE, 'Sharpe']:.2f}"
+        )
+    _bullets(s, lines, x=Inches(9.1), w=Inches(3.9), size=16)
 
     s = _slide(prs, "Performance by regime")
     _image(s, fig("10_regime_performance.png"), Inches(2.2), Inches(1.6), Inches(8.6))
 
+    s = _slide(prs, "Parameter sensitivity")
+    _image(s, fig("13_sensitivity.png"), Inches(1.6), Inches(1.5), Inches(8.4))
+    t = r["sensitivity"]
+    _bullets(
+        s,
+        [
+            f"Runs above 60/40 Sharpe: {int((t['Sharpe'] > t['Sharpe_60_40']).sum())} of {len(t)}",
+            f"Sharpe range: {t['Sharpe'].min():.2f} to {t['Sharpe'].max():.2f}",
+        ],
+        x=Inches(10.3),
+        w=Inches(2.8),
+        size=14,
+    )
+
+    sig = r["significance"]
+    overlay_wins = any(
+        (row["strategy"] in config.KAIROS and row["benchmark"] in config.OVERLAYS)
+        and row["diff"] > 0
+        and row["p_value"] < 0.05
+        for _, row in sig.iterrows()
+    )
+    overlay_line = (
+        "Forecast-driven portfolios beat a mechanical stress overlay at the 5% level."
+        if overlay_wins
+        else "Forecasts add no measurable value beyond a mechanical stress overlay; the regime layer mainly lowers drawdowns."
+    )
     s = _slide(prs, "Conclusions")
     _text(
         s,
         [
             f["answer"],
-            "Limitations: about 15 years of monthly data, approximate market-weight prior, 2008 outside the backtest window.",
+            overlay_line,
+            "Limitations: about 15 years of monthly data, hand-picked reference prior, 2008 outside the backtest window.",
         ],
         Inches(0.9),
         Inches(1.7),
         Inches(11.5),
-        Inches(4.5),
-        20,
+        Inches(4.8),
+        18,
     )
     return prs
 

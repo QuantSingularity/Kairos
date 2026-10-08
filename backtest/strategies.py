@@ -45,3 +45,13 @@ def mean_variance(universe, excess, window=36):
         row["CASH"] = 1.0 - w.sum()
         out[d] = row
     return to_frame(out)
+
+
+def regime_overlay(weights, regime, scale=None):
+    scale = 1.0 / config.STRESSED_DELTA_MULT if scale is None else scale
+    out = weights.copy()
+    risky = [c for c in out.columns if c != "CASH"]
+    stressed = (regime.reindex(out.index) == 1.0).values
+    out.loc[stressed, risky] = out.loc[stressed, risky] * scale
+    out["CASH"] = 1.0 - out[risky].sum(axis=1)
+    return out

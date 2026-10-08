@@ -93,3 +93,27 @@ COST_GRID = [0, 10, 25, 50]
 BOOTSTRAP_DRAWS = 4000
 BOOTSTRAP_BLOCK = 6
 SHAP_ASSETS = ["SPY", "EFA", "TLT", "GLD"]
+
+KAIROS = ["BL_ML_Regime", "BL_ML_Regime_IC", "BL_ML_NoRegime"]
+CLASSICAL = [
+    "Market_Reference",
+    "Equal_Weight",
+    "Static_60_40",
+    "Inverse_Vol",
+    "MeanVariance_LW",
+]
+OVERLAYS = ["Regime_60_40", "Regime_Market"]
+NAIVE = "BL_HistMean_Regime"
+DSR_TRIALS = (3, 10)
+
+DIAG_INITIAL_TRAIN = 72
+DIAG_MODELS = ["xgb", "rf", "ridge"]
+
+SENSITIVITY_GRID = {
+    "tau": [0.025, 0.05, 0.1, 0.2],
+    "base_delta": [1.5, 2.5, 4.0, 6.0],
+    "stressed_delta_mult": [1.0, 1.4, 1.8, 2.5],
+    "stressed_omega_mult": [1.0, 1.5, 2.5, 4.0],
+    "max_weight": [0.25, 0.35, 0.5],
+    "prior": ["reference", "equal"],
+}

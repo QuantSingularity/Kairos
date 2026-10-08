@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from scipy.stats import kurtosis, norm, skew
 
 import config
 
@@ -44,4 +45,29 @@ def paired_sharpe_test(
         "ci_high": float(hi),
         "p_value": float(p),
         "n": n,
+    }
+
+
+EULER_GAMMA = 0.5772156649015329
+
+
+def deflated_sharpe(excess, n_trials, sr_var):
+    x = np.asarray(excess, dtype=float)
+    x = x[~np.isnan(x)]
+    n = len(x)
+    sr = x.mean() / x.std(ddof=1)
+    if n_trials > 1 and sr_var > 0:
+        sr0 = np.sqrt(sr_var) * (
+            (1 - EULER_GAMMA) * norm.ppf(1 - 1.0 / n_trials)
+            + EULER_GAMMA * norm.ppf(1 - 1.0 / (n_trials * np.e))
+        )
+    else:
+        sr0 = 0.0
+    denom = np.sqrt(1 - skew(x) * sr + (kurtosis(x, fisher=False) - 1) / 4 * sr**2)
+    prob = float(norm.cdf((sr - sr0) * np.sqrt(n - 1) / denom))
+    return {
+        "Sharpe": float(sr * np.sqrt(12)),
+        "BenchmarkSharpe": float(sr0 * np.sqrt(12)),
+        "DSR": prob,
+        "Trials": n_trials,
     }

@@ -1,11 +1,31 @@
 import shutil
 import subprocess
 
-
 import config
-from reporting.analysis import findings, load_results, md_table
+from reporting.analysis import (
+    discussion,
+    findings,
+    load_results,
+    md_table,
+    summary_points,
+)
 
 PCT = {c: "{:.2%}" for c in ("AnnReturn", "AnnVol", "MaxDrawdown", "CVaR5")}
+SUMMARY_COLS = [
+    "AnnReturn",
+    "AnnVol",
+    "Sharpe",
+    "Sortino",
+    "MaxDrawdown",
+    "Calmar",
+    "CVaR5",
+    "AnnTurnover",
+]
+
+
+def fmt_prior():
+    w = sorted(config.MARKET_WEIGHTS.items(), key=lambda kv: -kv[1])
+    return ", ".join(f"{k} {v:.0%}" for k, v in w)
 
 
 def build_markdown(paths=config.PATHS):
@@ -16,17 +36,17 @@ def build_markdown(paths=config.PATHS):
     prov = q[q["first_date"].notna()][["series", "first_date", "observations"]]
     models = r["models"].set_index("Asset")
     ic_cols = [c for c in models.columns if c.startswith("IC_")] + ["p_value_stacked"]
-    summary = r["summary"][
-        [
-            "AnnReturn",
-            "AnnVol",
-            "Sharpe",
-            "Sortino",
-            "MaxDrawdown",
-            "Calmar",
-            "CVaR5",
-            "AnnTurnover",
-        ]
+    skill_cols = [
+        "BaseRate",
+        "UpShare_stacked",
+        "Hit_ensemble_stacked",
+        "HitEdge_ensemble_stacked",
+        "IC_ensemble_stacked",
+        "R2OOS_ensemble_stacked",
+        "R2OOS_xgb",
+        "R2OOS_rf",
+        "R2OOS_ridge",
+        "R2OOS_lstm",
     ]
     sig = r["significance"][
         ["strategy", "benchmark", "diff", "ci_low", "ci_high", "p_value"]
@@ -35,6 +55,33 @@ def build_markdown(paths=config.PATHS):
         ["AnnReturn", "Sharpe", "MaxDrawdown", "CVaR5", "Months"]
     ].copy()
     regime.index = [f"{a} / {b}" for a, b in regime.index]
+    overlay_rows = [
+        n
+        for n in (
+            "BL_ML_Regime",
+            "BL_ML_Regime_IC",
+            config.NAIVE,
+            "Regime_60_40",
+            "Static_60_40",
+            "Regime_Market",
+            "Market_Reference",
+        )
+        if n in r["summary"].index
+    ]
+    sens = r["sensitivity"].copy()
+    sens["Default"] = sens["IsDefault"].map({True: "yes", False: ""})
+    sens = sens[
+        [
+            "Parameter",
+            "Value",
+            "Default",
+            "Variant",
+            "Sharpe",
+            "MaxDrawdown",
+            "AnnTurnover",
+            "AvgCash",
+        ]
+    ]
     parts = [
         "# Kairos: Regime-Aware Portfolio Intelligence",
         "Track: Machine Learning (Deep Learning) Investment Strategies, Topic 2: Portfolio Allocation.",
@@ -43,14 +90,7 @@ def build_markdown(paths=config.PATHS):
         "produce statistically and economically meaningful improvements in risk-adjusted returns over classical allocation methods, "
         "and under what market conditions does this advantage hold or break down?",
         "## 2. Summary of Findings",
-        f"{f['answer']}",
-        f"Regime ablation: BL_ML_Regime versus BL_ML_NoRegime is {f['ablation']}. {f['stress_cvar']}",
-        f"Forecasting: the stacked ensemble has a mean out-of-sample information coefficient of {f['mean_ic']:.3f}, and "
-        f"{f['sig_assets']} of {f['n_assets']} assets show an IC significant at the 5% level. The stacked ensemble beats the mean of the "
-        f"single models on {f['ens_beats']} of {f['n_assets']} assets.",
-        f"Regimes: the walk-forward HMM flags {f['hmm_stress']:.0%} of days inside the documented stress windows and {f['hmm_calm']:.0%} "
-        f"of days inside the calm control windows, against {f['vol_stress']:.0%} and {f['vol_calm']:.0%} for the volatility rule.",
-        "Sharpe ranking: " + f["ranking"] + ".",
+        *summary_points(r, f),
         "## 3. Data",
         "All prices are daily adjusted closes downloaded from Yahoo Finance through the yfinance library, with the CBOE VIX (^VIX) "
         "and the 13-week Treasury bill yield (^IRX) as the volatility and risk-free inputs. No series is simulated, interpolated "
@@ -67,15 +107,23 @@ def build_markdown(paths=config.PATHS):
         "rule is the comparison method.",
         "**Forecasting.** One-month-ahead log return per asset with walk-forward XGBoost, Random Forest, Ridge and a NumPy LSTM, plus an "
         f"equal-weight ensemble and a stacked ensemble whose non-negative weights are fit on the previous {config.STACK_WINDOW} months. "
-        f"The first {config.INITIAL_TRAIN_MONTHS} months are used only for initial training.",
+        f"The first {config.INITIAL_TRAIN_MONTHS} months are used only for initial training. Skill is judged by the information "
+        "coefficient, the hit rate against the always-up baseline, and the out-of-sample R2 against an expanding historical-mean forecast.",
+        "**Forecast diagnostics.** The tree and linear models are re-fitted without the regime features, without all market-wide "
+        f"stress inputs (regime and VIX), with a {config.DIAG_INITIAL_TRAIN}-month initial window, and with the first and last changes "
+        "combined, and compared on the dates common to all designs. "
+        "The link between the stress probability and next-month returns is measured separately inside and after the initial window.",
         "**Portfolio construction.** Black-Litterman with a Ledoit-Wolf covariance, a reference market-weight prior, and the stacked "
         "forecasts as absolute views. View uncertainty follows the trailing forecast error variance. In the stressed regime, view "
         "uncertainty is multiplied and risk aversion is raised. The optimiser allows cash, so higher risk aversion lowers exposure. "
-        "BL_ML_Regime_IC additionally scales each view by the asset's trailing IC. BL_ML_NoRegime removes the regime scaling and serves as the ablation.",
+        "BL_ML_Regime_IC additionally scales each view by the asset's trailing IC. BL_ML_NoRegime removes the regime scaling and "
+        "serves as the ablation. BL_HistMean_Regime replaces the machine learning views with the expanding historical mean.",
         "**Benchmarks.** Market reference weights, equal weight, 60/40 (SPY and IEF), inverse volatility, and mean-variance with Ledoit-Wolf "
-        "covariance. All benchmarks use the same eligible universe as the Black-Litterman portfolios.",
+        "covariance. All benchmarks use the same eligible universe as the Black-Litterman portfolios. Regime_60_40 and Regime_Market "
+        "apply the stress rule mechanically to 60/40 and to the market reference, with no forecasts.",
         "**Backtest.** Monthly rebalancing, 10 basis points on traded notional, weight drift, cash earning the T-bill rate, and Sharpe ratios "
-        "measured on excess returns over that rate. Significance uses a paired stationary bootstrap of the Sharpe difference, centred on the null.",
+        "measured on excess returns over that rate. Significance uses a paired stationary bootstrap of the Sharpe difference, centred on the "
+        "null. A deflated Sharpe ratio allows for the Kairos variants tried. Sensitivity runs change one Black-Litterman parameter at a time.",
         "## 5. Results",
         "### 5.1 Regime detection",
         md_table(
@@ -91,39 +139,72 @@ def build_markdown(paths=config.PATHS):
         ),
         fig("03_regime_validation.png", "Share of days flagged stressed"),
         fig("02_regime_timeline.png", "Walk-forward regime timeline"),
-        "### 5.2 Forecasting",
+        "### 5.2 Forecasting skill",
+        "Out-of-sample information coefficient by asset and model:",
         md_table(models[ic_cols]),
         fig("04_model_ic.png", "Out-of-sample IC by asset and model"),
-        fig("05_shap_regime.png", "Regime-conditional SHAP importance"),
-        "### 5.3 Portfolio performance",
-        md_table(summary, {**PCT, "AnnTurnover": "{:.2f}"}),
+        "Hit rate against the always-up baseline and R2 against the historical mean (HitEdge is the hit rate minus the share of up months):",
+        md_table(models[skill_cols]),
+        fig("11_forecast_skill.png", "Forecast skill of the stacked ensemble"),
+        fig(
+            "05_shap_regime.png",
+            "Regime-conditional SHAP importance (in-sample, for explanation only)",
+        ),
+        "### 5.3 Diagnosing the information coefficient",
+        "Rank correlation between the filtered stress probability and the next-month return, inside and after the initial training window:",
+        md_table(
+            r["regime_link"].set_index("Asset"),
+            {"n": "{:.0f}", "StressedMonths": "{:.0f}"},
+        ),
+        "Tree and linear models re-fitted under alternative designs, compared on common dates:",
+        md_table(r["ic_summary"], {"Assets": "{:.0f}", "AssetsPositiveIC": "{:.0f}"}),
+        fig("12_ic_diagnostics.png", "Mean IC by forecasting design"),
+        "### 5.4 Portfolio performance",
+        md_table(r["summary"][SUMMARY_COLS], {**PCT, "AnnTurnover": "{:.2f}"}),
         fig("07_cumulative_returns.png", "Cumulative net return"),
         fig("08_drawdowns.png", "Drawdowns"),
         fig("06_weights.png", "Portfolio weights"),
-        "### 5.4 Statistical significance",
+        "### 5.5 Statistical significance",
         md_table(sig, index=False),
         fig(
             "09_sharpe_significance.png",
             "Sharpe difference with 95% bootstrap interval",
         ),
-        "### 5.5 Performance by regime",
+        "Deflated Sharpe ratio of the Kairos variants (DSR is the probability that the true Sharpe ratio is positive after allowing for the number of trials):",
+        md_table(r["deflated"], {"Trials": "{:.0f}"}, index=False),
+        "### 5.6 Overlay ablation",
+        md_table(
+            r["summary"].loc[overlay_rows, SUMMARY_COLS],
+            {**PCT, "AnnTurnover": "{:.2f}"},
+        ),
+        fig(
+            "14_overlay_ablation.png",
+            "Forecast-driven portfolios against mechanical overlays",
+        ),
+        "### 5.7 Performance by regime",
         md_table(regime, {**PCT, "Months": "{:.0f}"}),
         fig("10_regime_performance.png", "Annualised return by regime"),
-        "### 5.6 Robustness",
+        "### 5.8 Robustness",
         "Sharpe ratio by transaction cost assumption:",
         md_table(r["cost"]),
         "Sharpe ratio by half of the sample:",
         md_table(r["subperiod"]),
+        "Black-Litterman parameter sensitivity, one parameter changed at a time:",
+        md_table(
+            sens, {**PCT, "AnnTurnover": "{:.2f}", "AvgCash": "{:.1%}"}, index=False
+        ),
+        fig("13_sensitivity.png", "Sharpe ratio across parameter settings"),
         "## 6. Discussion",
-        f"On the research question: {f['answer']} The regime ablation shows that regime scaling is {f['ablation']}.",
-        "Where the advantage holds or breaks down is read from section 5.5: the regime table separates calm and stressed decision months, "
-        "and the cash allowance means the regime-aware variants can reduce exposure in stress, which the ablation isolates.",
+        *discussion(r, f),
         "## 7. Limitations",
         "The usable out-of-sample window begins after the initial training period, so the 2008 crisis is not part of the portfolio backtest "
         "even though its regime labels are available once the HMM has enough history. Monthly data gives roughly 15 years of "
         "observations, which limits statistical power, so wide intervals should be read as inconclusive rather than as evidence of equivalence. "
-        "The prior uses approximate global asset-class weights, not an observed market-capitalisation series. The LSTM is a small NumPy "
-        "implementation refit every six months. Yahoo adjusted closes are retrospective vendor data and can be revised. Results hold for this universe and period.",
+        f"The prior is a hand-picked reference allocation ({fmt_prior()}), not an observed market-capitalisation series, and the "
+        "equal-weight prior check in section 5.8 shows how far the results depend on it. The stress rule is calibrated by hand "
+        "(multipliers fixed in advance) and the validation windows were chosen with hindsight, although they are not used in fitting. "
+        "The LSTM is a small NumPy implementation refit every six months. The diagnostics are exploratory: they use the same sample as the "
+        "main test. Yahoo adjusted closes are retrospective vendor data and can be revised. Results hold for this universe and period.",
         "## 8. Reproducibility",
         "Run `python run.py all` to download data, run every stage and rebuild this report. Seeds, parameters and paths are in `config.py`.",
     ]

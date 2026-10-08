@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 from scipy.optimize import minimize
@@ -6,6 +8,26 @@ from sklearn.covariance import LedoitWolf
 import config
 
 COLUMNS = config.ASSETS + ["CASH"]
+
+
+@dataclass(frozen=True)
+class BLParams:
+    tau: float
+    base_delta: float
+    stressed_delta_mult: float
+    stressed_omega_mult: float
+    max_weight: float
+    prior: str = "reference"
+
+
+def default_params():
+    return BLParams(
+        config.TAU,
+        config.BASE_DELTA,
+        config.STRESSED_DELTA_MULT,
+        config.STRESSED_OMEGA_MULT,
+        config.MAX_WEIGHT,
+    )
 
 
 def shrunk_cov(returns):
@@ -84,27 +106,40 @@ def trailing_stats(df, date, window=config.STACK_WINDOW):
 
 
 def black_litterman_weights(
-    forecasts, log_rets, rf, regime, universe, use_regime=True, ic_shrink=False
+    forecasts,
+    log_rets,
+    rf,
+    regime,
+    universe,
+    use_regime=True,
+    ic_shrink=False,
+    params=None,
 ):
+    p = params or default_params()
     excess = log_rets.sub(rf, axis=0)
     records = {}
     for d, names in universe.items():
         hist = excess.loc[:d, names].dropna().tail(config.COV_WINDOW)
         cov = shrunk_cov(hist)
         stressed = use_regime and regime.get(d, 0.0) == 1.0
-        delta = config.BASE_DELTA * (config.STRESSED_DELTA_MULT if stressed else 1.0)
-        pi = equilibrium_returns(cov, config.MARKET_WEIGHTS, config.BASE_DELTA)
+        delta = p.base_delta * (p.stressed_delta_mult if stressed else 1.0)
+        prior = (
+            config.MARKET_WEIGHTS
+            if p.prior == "reference"
+            else dict.fromkeys(names, 1.0)
+        )
+        pi = equilibrium_returns(cov, prior, p.base_delta)
         Q = np.array([forecasts[a].at[d, "ensemble_stacked"] - rf.at[d] for a in names])
         omega = []
         for i, a in enumerate(names):
             err_var, ic = trailing_stats(forecasts[a], d)
             base = err_var if err_var is not None else float(np.var(hist[a]))
-            mult = config.STRESSED_OMEGA_MULT if stressed else 1.0
+            mult = p.stressed_omega_mult if stressed else 1.0
             if ic_shrink:
                 mult /= max(ic, config.IC_FLOOR)
             omega.append(base * mult)
-        mu, cov_bl = posterior(cov, pi, Q, omega)
-        w = optimize_weights(mu, cov_bl, delta)
+        mu, cov_bl = posterior(cov, pi, Q, omega, p.tau)
+        w = optimize_weights(mu, cov_bl, delta, p.max_weight)
         row = pd.Series(w, index=names)
         row["CASH"] = 1.0 - w.sum()
         records[d] = row

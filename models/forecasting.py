@@ -177,6 +177,15 @@ def load_forecasts(paths=config.PATHS):
     return out
 
 
+def historical_mean(target):
+    return target.expanding().mean().shift(1)
+
+
+def r2_oos(pred, target, benchmark):
+    denom = float(np.sum((target - benchmark) ** 2))
+    return 1.0 - float(np.sum((target - pred) ** 2)) / denom if denom > 0 else np.nan
+
+
 def evaluate(forecasts):
     rows = []
     cols = config.MODELS + ["ensemble_equal", "ensemble_stacked"]
@@ -186,10 +195,18 @@ def evaluate(forecasts):
         if len(oos) < 12:
             rows.append(row)
             continue
+        base = float((oos["target"] > 0).mean())
+        bench = historical_mean(df["target"]).reindex(oos.index)
+        row["BaseRate"] = base
+        row["UpShare_stacked"] = float((oos["ensemble_stacked"] > 0).mean())
         for c in cols:
             ic, p = spearmanr(oos[c], oos["target"])
             row[f"IC_{c}"] = ic
-            row[f"Hit_{c}"] = float((np.sign(oos[c]) == np.sign(oos["target"])).mean())
+            hit = float((np.sign(oos[c]) == np.sign(oos["target"])).mean())
+            row[f"Hit_{c}"] = hit
+            row[f"HitEdge_{c}"] = hit - base
+            row[f"R2OOS_{c}"] = r2_oos(oos[c], oos["target"], bench)
+            row[f"Disp_{c}"] = float(oos[c].std() / oos["target"].std())
             if c == "ensemble_stacked":
                 row["p_value_stacked"] = p
         singles = [row[f"IC_{m}"] for m in config.MODELS]

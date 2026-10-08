@@ -8,8 +8,10 @@ STAGES = [
     "regimes",
     "features",
     "forecast",
+    "diagnostics",
     "shap",
     "portfolio",
+    "sensitivity",
     "figures",
     "report",
     "deck",
@@ -34,6 +36,10 @@ def run_stage(name, paths=config.PATHS, refresh=False, assets=None, n_jobs=-1):
         from models import forecasting
 
         return forecasting.run(paths, assets, n_jobs)
+    if name == "diagnostics":
+        from models import diagnostics
+
+        return diagnostics.run(paths, assets, n_jobs)
     if name == "shap":
         from models import shap_analysis
 
@@ -42,6 +48,10 @@ def run_stage(name, paths=config.PATHS, refresh=False, assets=None, n_jobs=-1):
         from backtest import engine
 
         return engine.run(paths)
+    if name == "sensitivity":
+        from backtest import sensitivity
+
+        return sensitivity.run(paths)
     if name == "figures":
         from reporting import figures
 

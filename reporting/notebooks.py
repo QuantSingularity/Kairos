@@ -22,12 +22,41 @@ SPECS = {
             "md",
             "# Forecasting\nOut-of-sample information coefficients by asset and model.",
         ),
-        ("code", HEADER + "pd.read_csv(P.tables / 'model_comparison.csv')"),
+        ("code", HEADER + "pd.read_csv(P.tables / 'model_comparison.csv').T"),
         (
             "code",
             "from IPython.display import Image\nImage(str(P.figures / '04_model_ic.png'))",
         ),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '11_forecast_skill.png'))",
+        ),
         ("code", "pd.read_csv(P.tables / 'shap_SPY.csv', index_col=0).head(15)"),
+    ],
+    "04_diagnostics_and_robustness": [
+        (
+            "md",
+            "# Diagnostics and robustness\nForecast diagnostics, overlay ablation, deflated Sharpe and parameter sensitivity.",
+        ),
+        (
+            "code",
+            HEADER + "pd.read_csv(P.tables / 'regime_return_link.csv')",
+        ),
+        ("code", "pd.read_csv(P.tables / 'ic_diagnostics_summary.csv', index_col=0)"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '12_ic_diagnostics.png'))",
+        ),
+        ("code", "pd.read_csv(P.tables / 'deflated_sharpe.csv')"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '14_overlay_ablation.png'))",
+        ),
+        ("code", "pd.read_csv(P.tables / 'sensitivity.csv')"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '13_sensitivity.png'))",
+        ),
     ],
     "03_portfolio_and_backtest": [
         ("md", "# Portfolio construction and backtest"),
@@ -43,6 +72,24 @@ SPECS = {
 }
 
 
+def execute(path):
+    if not (path.parent.parent / "config.py").exists():
+        return False
+    try:
+        from nbclient import NotebookClient
+    except ImportError:
+        return False
+    nb = nbf.read(path, as_version=4)
+    NotebookClient(
+        nb,
+        timeout=120,
+        kernel_name="python3",
+        resources={"metadata": {"path": str(path.parent)}},
+    ).execute()
+    nbf.write(nb, path)
+    return True
+
+
 def run(paths=config.PATHS):
     paths.notebooks.mkdir(parents=True, exist_ok=True)
     out = []
@@ -54,5 +101,6 @@ def run(paths=config.PATHS):
         ]
         path = paths.notebooks / f"{name}.ipynb"
         nbf.write(nb, path)
+        execute(path)
         out.append(path)
     return out

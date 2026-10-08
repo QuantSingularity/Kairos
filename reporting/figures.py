@@ -29,16 +29,32 @@ COLORS = [
     "#17becf",
     "#8c564b",
     "#7f7f7f",
+    "#bcbd22",
+    "#e377c2",
+    "#393b79",
+]
+ORDER = [
+    "BL_ML_Regime",
+    "BL_ML_Regime_IC",
+    "BL_ML_NoRegime",
+    "BL_HistMean_Regime",
+    "Market_Reference",
+    "Equal_Weight",
+    "Static_60_40",
+    "Inverse_Vol",
+    "MeanVariance_LW",
+    "Regime_60_40",
+    "Regime_Market",
 ]
 FOCUS = [
     "BL_ML_Regime",
     "BL_ML_Regime_IC",
     "BL_ML_NoRegime",
     "Market_Reference",
-    "Equal_Weight",
     "Static_60_40",
+    "Regime_60_40",
+    "Equal_Weight",
     "Inverse_Vol",
-    "MeanVariance_LW",
 ]
 
 
@@ -145,7 +161,7 @@ def cumulative_returns(returns, paths):
                 (1 + returns[n]["net"]).cumprod(),
                 label=n,
                 lw=1.6 if n.startswith("BL_") else 1,
-                color=COLORS[i % 8],
+                color=COLORS[i % len(COLORS)],
             )
     ax.set_yscale("log")
     ax.set_title("Cumulative net return (log scale)")
@@ -158,7 +174,7 @@ def drawdowns(returns, paths):
     for i, n in enumerate(FOCUS):
         if n in returns:
             c = (1 + returns[n]["net"]).cumprod()
-            ax.plot(c / c.cummax() - 1, label=n, lw=1, color=COLORS[i % 8])
+            ax.plot(c / c.cummax() - 1, label=n, lw=1, color=COLORS[i % len(COLORS)])
     ax.set_title("Drawdowns")
     ax.legend(ncol=2, fontsize=7)
     _save(fig, paths, "08_drawdowns.png")
@@ -184,7 +200,7 @@ def sharpe_significance(sig, paths):
 
 
 def regime_performance(regime_table, paths):
-    t = regime_table.xs("Stressed", level=1)["AnnReturn"].reindex(FOCUS).dropna()
+    t = regime_table.xs("Stressed", level=1)["AnnReturn"].reindex(ORDER).dropna()
     c = regime_table.xs("Calm", level=1)["AnnReturn"].reindex(t.index)
     fig, ax = plt.subplots(figsize=(8, 3.6))
     x = np.arange(len(t))
@@ -196,6 +212,103 @@ def regime_performance(regime_table, paths):
     ax.set_title("Annualised return by regime at decision date")
     ax.legend()
     _save(fig, paths, "10_regime_performance.png")
+
+
+def forecast_skill(table, paths):
+    t = table.dropna(subset=["IC_ensemble_stacked"]).set_index("Asset")
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
+    t["IC_ensemble_stacked"].plot.bar(ax=axes[0], color="#1f77b4")
+    axes[0].set_title("Stacked IC")
+    t["R2OOS_ensemble_stacked"].plot.bar(ax=axes[1], color="#d62728")
+    axes[1].set_title("Stacked R2 against historical mean")
+    x = np.arange(len(t))
+    axes[2].bar(
+        x - 0.2, t["BaseRate"], 0.4, label="Always-up baseline", color="#7f7f7f"
+    )
+    axes[2].bar(
+        x + 0.2,
+        t["Hit_ensemble_stacked"],
+        0.4,
+        label="Stacked hit rate",
+        color="#2ca02c",
+    )
+    axes[2].set_xticks(x)
+    axes[2].set_xticklabels(t.index)
+    axes[2].set_ylim(0.3, 0.75)
+    axes[2].set_title("Hit rate against baseline")
+    axes[2].legend(fontsize=7)
+    for ax in axes:
+        ax.axhline(0, color="black", lw=0.6)
+        plt.setp(ax.get_xticklabels(), rotation=45, ha="right")
+    _save(fig, paths, "11_forecast_skill.png")
+
+
+def ic_diagnostics(summary, table, paths):
+    names = list(summary.index)
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
+    x = np.arange(len(names))
+    axes[0].bar(x - 0.2, summary["MeanIC"], 0.4, label="All assets", color="#1f77b4")
+    axes[0].bar(
+        x + 0.2, summary["MeanIC_equities"], 0.4, label="SPY and EFA", color="#ff7f0e"
+    )
+    axes[0].set_xticks(x)
+    axes[0].set_xticklabels([n.replace("_", "\n") for n in names], fontsize=8)
+    axes[0].axhline(0, color="black", lw=0.6)
+    axes[0].set_title("Mean IC by forecasting design")
+    axes[0].legend(fontsize=7)
+    axes[1].bar(x, summary["MeanR2OOS"], 0.5, color="#d62728")
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels([n.replace("_", "\n") for n in names], fontsize=8)
+    axes[1].axhline(0, color="black", lw=0.6)
+    axes[1].set_title("Mean R2 against historical mean")
+    _save(fig, paths, "12_ic_diagnostics.png")
+
+
+def sensitivity_chart(table, paths):
+    params = list(table["Parameter"].unique())
+    cols = 3
+    rows = int(np.ceil(len(params) / cols))
+    fig, axes = plt.subplots(rows, cols, figsize=(10, 2.8 * rows), squeeze=False)
+    ref = float(table["Sharpe_60_40"].iloc[0])
+    for ax, name in zip(axes.ravel(), params):
+        sub = table[table["Parameter"] == name]
+        for i, v in enumerate(sub["Variant"].unique()):
+            part = sub[sub["Variant"] == v]
+            ax.plot(part["Value"], part["Sharpe"], marker="o", label=v, color=COLORS[i])
+        ax.axhline(ref, color="black", ls="--", lw=0.8, label="Static_60_40")
+        ax.set_title(name)
+    for ax in axes.ravel()[len(params) :]:
+        ax.axis("off")
+    axes[0][0].legend(fontsize=6)
+    _save(fig, paths, "13_sensitivity.png")
+
+
+def overlay_ablation(summary, paths):
+    names = [
+        n
+        for n in (
+            "BL_ML_Regime",
+            "BL_ML_Regime_IC",
+            "BL_HistMean_Regime",
+            "Regime_60_40",
+            "Static_60_40",
+            "Regime_Market",
+            "Market_Reference",
+        )
+        if n in summary.index
+    ]
+    fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
+    colors = [COLORS[i] for i in range(len(names))]
+    axes[0].barh(
+        names[::-1], summary.loc[names, "Sharpe"].values[::-1], color=colors[::-1]
+    )
+    axes[0].set_title("Sharpe ratio")
+    axes[1].barh(
+        names[::-1], summary.loc[names, "MaxDrawdown"].values[::-1], color=colors[::-1]
+    )
+    axes[1].set_title("Maximum drawdown")
+    axes[1].set_yticklabels([])
+    _save(fig, paths, "14_overlay_ablation.png")
 
 
 def run(paths=config.PATHS):
@@ -232,4 +345,14 @@ def run(paths=config.PATHS):
     sharpe_significance(pd.read_csv(paths.tables / "significance.csv"), paths)
     regime_performance(
         pd.read_csv(paths.tables / "regime_metrics.csv", index_col=[0, 1]), paths
+    )
+    forecast_skill(pd.read_csv(paths.tables / "model_comparison.csv"), paths)
+    ic_diagnostics(
+        pd.read_csv(paths.tables / "ic_diagnostics_summary.csv", index_col=0),
+        pd.read_csv(paths.tables / "ic_diagnostics.csv"),
+        paths,
+    )
+    sensitivity_chart(pd.read_csv(paths.tables / "sensitivity.csv"), paths)
+    overlay_ablation(
+        pd.read_csv(paths.tables / "summary_metrics.csv", index_col=0), paths
     )
