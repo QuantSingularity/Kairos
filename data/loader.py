@@ -121,9 +121,34 @@ def validate_panel(panel, min_years=8.0):
     return report, problems
 
 
+def manifest(paths=config.PATHS):
+    import hashlib
+
+    rows = []
+    for ticker in config.ASSETS + [config.VIX_TICKER, config.RF_TICKER]:
+        path = cache_file(paths, ticker)
+        if not path.exists():
+            continue
+        s = pd.read_csv(path, index_col=0, parse_dates=True).iloc[:, 0].dropna()
+        if s.empty:
+            continue
+        rows.append(
+            {
+                "series": ticker,
+                "file": path.name,
+                "rows": len(s),
+                "first": s.index[0].date(),
+                "last": s.index[-1].date(),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest()[:16],
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def run(paths=config.PATHS, refresh=False):
     paths.ensure()
     panel = build_panel(fetch_prices(paths, refresh))
+    manifest(paths).to_csv(paths.processed / "data_manifest.csv", index=False)
     report, problems = validate_panel(panel)
     report.to_csv(paths.processed / "data_quality.csv", index=False)
     if problems:

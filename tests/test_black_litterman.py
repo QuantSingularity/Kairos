@@ -80,6 +80,7 @@ def make_forecasts(n=100, seed=3, names=("SPY", "EFA", "TLT", "IEF")):
     for a in names:
         f = pd.DataFrame({"target": rets[a].shift(-1)}, index=idx)
         f["ensemble_stacked"] = 0.3 * f["target"] + rng.normal(0, 0.02, n)
+        f["ensemble_final"] = f["ensemble_stacked"]
         f.iloc[:40] = np.nan
         forecasts[a] = f
     return forecasts, rets, pd.Series(0.001, index=idx)
@@ -88,7 +89,7 @@ def make_forecasts(n=100, seed=3, names=("SPY", "EFA", "TLT", "IEF")):
 def test_universe_requires_history_and_forecasts():
     forecasts, rets, rf = make_forecasts()
     u = bl.build_universe(forecasts, rets)
-    assert min(u) >= forecasts["SPY"]["ensemble_stacked"].dropna().index[0]
+    assert min(u) >= forecasts["SPY"]["ensemble_final"].dropna().index[0]
     assert all(len(v) >= config.MIN_UNIVERSE for v in u.values())
 
 

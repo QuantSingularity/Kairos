@@ -5,11 +5,18 @@ import pandas as pd
 
 import config
 from backtest import strategies as st
-from backtest.engine import monthly_data, performance, portfolio_returns
+from backtest.engine import (
+    monthly_data,
+    naive_forecasts,
+    performance,
+    portfolio_returns,
+)
+from backtest.stats import paired_sharpe_test
 from models.black_litterman import (
     black_litterman_weights,
     build_universe,
     default_params,
+    load_prior_table,
 )
 from models.forecasting import load_forecasts
 
@@ -27,6 +34,8 @@ def run_grid(forecasts, panel, regime, grid=None):
     base, rows = default_params(), []
     for name, values in grid.items():
         for value in values:
+            if value == "observed":
+                continue
             params = replace(base, **{name: value})
             for variant, ic in VARIANTS:
                 w = black_litterman_weights(
@@ -50,6 +59,55 @@ def run_grid(forecasts, panel, regime, grid=None):
     return pd.DataFrame(rows)
 
 
+def run_priors(forecasts, panel, regime, table=None):
+    _, log_rets, rf = monthly_data(panel)
+    simple = np.expm1(log_rets)
+    universe = build_universe(forecasts, log_rets)
+    kinds = ["reference", "equal", "inverse_vol"] + (
+        ["observed"] if table is not None else []
+    )
+    naive = naive_forecasts(forecasts)
+    variants = (
+        ("BL_ML_Regime", forecasts, False),
+        ("BL_ML_Regime_IC", forecasts, True),
+        (config.NAIVE, naive, False),
+    )
+    rows = []
+    for kind in kinds:
+        params = replace(default_params(), prior=kind)
+        matched = portfolio_returns(
+            st.prior_portfolio(universe, kind, log_rets, table),
+            simple,
+            rf,
+            config.COST_BPS,
+        )
+        base = performance(matched)
+        for name, source, ic in variants:
+            w = black_litterman_weights(
+                source, log_rets, rf, regime, universe, True, ic, params, None, table
+            )
+            bt = portfolio_returns(w, simple, rf, config.COST_BPS)
+            m = performance(bt)
+            test = paired_sharpe_test(
+                bt["net"] - bt["rf"], matched["net"] - matched["rf"]
+            )
+            rows.append(
+                {
+                    "Prior": kind,
+                    "Variant": name,
+                    "Sharpe": m["Sharpe"],
+                    "Sharpe_PriorPortfolio": base["Sharpe"],
+                    "Diff": test["diff"],
+                    "CI_low": test["ci_low"],
+                    "CI_high": test["ci_high"],
+                    "p_value": test["p_value"],
+                    "MaxDrawdown": m["MaxDrawdown"],
+                    "MaxDrawdown_PriorPortfolio": base["MaxDrawdown"],
+                }
+            )
+    return pd.DataFrame(rows)
+
+
 def run(paths=config.PATHS):
     panel = pd.read_csv(
         paths.processed / "panel_daily.csv", index_col=0, parse_dates=True
@@ -57,6 +115,9 @@ def run(paths=config.PATHS):
     F = pd.read_csv(
         paths.processed / "features_monthly.csv", index_col=0, parse_dates=True
     )
-    table = run_grid(load_forecasts(paths), panel, F["regime"])
+    forecasts = load_forecasts(paths)
+    table = run_grid(forecasts, panel, F["regime"])
     table.to_csv(paths.tables / "sensitivity.csv", index=False)
+    priors = run_priors(forecasts, panel, F["regime"], load_prior_table(paths))
+    priors.to_csv(paths.tables / "prior_comparison.csv", index=False)
     return table

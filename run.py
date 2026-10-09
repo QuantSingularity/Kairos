@@ -12,6 +12,8 @@ STAGES = [
     "shap",
     "portfolio",
     "sensitivity",
+    "windows",
+    "holdout",
     "figures",
     "report",
     "deck",
@@ -52,6 +54,14 @@ def run_stage(name, paths=config.PATHS, refresh=False, assets=None, n_jobs=-1):
         from backtest import sensitivity
 
         return sensitivity.run(paths)
+    if name == "windows":
+        from backtest import windows
+
+        return windows.run(paths)
+    if name == "holdout":
+        from backtest import holdout
+
+        return holdout.run(paths)
     if name == "figures":
         from reporting import figures
 

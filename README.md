@@ -13,12 +13,12 @@ Kairos is a regime-aware machine learning approach to portfolio allocation. It a
 
 ## Headline result
 
-The central hypothesis is not supported on this sample. The forecasters have no out-of-sample skill (mean stacked IC -0.037, significantly negative for SPY and BTC-USD, with a negative R2 against the historical mean on every asset), and the Kairos portfolios do not beat static 60/40 or the market reference. Applying the same stress rule mechanically to 60/40 matches its Sharpe ratio and cuts its drawdown, so the useful part of Kairos is the regime-driven de-risking, not the forecasts. None of 42 Black-Litterman parameter settings reaches the 60/40 Sharpe ratio. The three Kairos variants were tried on one sample, so the best of them is exploratory.
+The central hypothesis is not supported on this sample. No forecast has out-of-sample skill: the original stacked ensemble has a mean IC of -0.047, significantly negative for SPY and EFA, and a negative R2 against the historical mean on every asset. A repaired LSTM, pooled cross-asset models, a convex stacker and calibration toward the historical mean remove the harm (mean R2 -0.014 against -0.091 for the original stack) but do not produce a positive mean R2 in either the development or the holdout period. The Kairos portfolios do not beat static 60/40 or the market reference, and the same stress rule applied mechanically to 60/40 matches its Sharpe ratio and cuts its drawdown, so the useful part of Kairos is the regime-driven de-risking, not the forecasts. 0 of 44 Black-Litterman parameter settings reach the 60/40 Sharpe ratio, and Black-Litterman adds a significant gain over its own prior portfolio for 0 of 3 priors. When 2008 is included (crisis-inclusive window), the overlay's maximum drawdown is -16.6% against -29.5% for plain 60/40. The specification is frozen as of 2026-07-31 with 0 months realised since, so there is no confirmatory evidence yet.
 
 | Strategy             | Sharpe | Ann. return | Ann. vol | Max drawdown |
 | -------------------- | ------ | ----------- | -------- | ------------ |
-| `BL_ML_Regime`       | 0.78   | 7.7%        | 8.2%     | -16.3%       |
-| `BL_ML_Regime_IC`    | 0.86   | 7.5%        | 7.1%     | -13.3%       |
+| `BL_ML_Regime`       | 0.84   | 7.7%        | 7.5%     | -16.2%       |
+| `BL_ML_Regime_IC`    | 0.86   | 7.4%        | 7.0%     | -13.2%       |
 | `BL_HistMean_Regime` | 0.89   | 8.0%        | 7.4%     | -15.3%       |
 | `Static_60_40`       | 0.98   | 10.4%       | 9.1%     | -20.5%       |
 | `Regime_60_40`       | 0.98   | 8.2%        | 6.9%     | -13.1%       |
@@ -49,22 +49,24 @@ The first run downloads prices from Yahoo Finance and caches them in `data/raw/`
 
 ## Pipeline
 
-| #   | Stage         | What it does                                                      | Main output                                                    |
-| --- | ------------- | ----------------------------------------------------------------- | -------------------------------------------------------------- |
-| 1   | `data`        | Downloads, aligns and validates the price panel                   | `data/processed/panel_daily.csv`                               |
-| 2   | `regimes`     | Fits the walk-forward HMM and the volatility rule                 | `data/processed/regimes_daily.csv`                             |
-| 3   | `features`    | Builds causal monthly features                                    | `data/processed/features_monthly.csv`                          |
-| 4   | `forecast`    | Runs walk-forward forecasts and skill metrics for every asset     | `data/processed/forecasts_<asset>.csv`                         |
-| 5   | `diagnostics` | Re-fits tree and linear models under alternative designs          | `results/tables/ic_diagnostics*.csv`, `regime_return_link.csv` |
-| 6   | `shap`        | Explains the forecasts by regime                                  | `results/tables/shap_<asset>.csv`                              |
-| 7   | `portfolio`   | Builds portfolios, backtests, tests significance, deflates Sharpe | `results/tables/*.csv`                                         |
-| 8   | `sensitivity` | Changes one Black-Litterman parameter at a time                   | `results/tables/sensitivity.csv`                               |
-| 9   | `figures`     | Draws the fourteen report figures                                 | `results/figures/*.png`                                        |
-| 10  | `report`      | Writes the report in Markdown and Word                            | `reports/Kairos_Report.md`                                     |
-| 11  | `deck`        | Builds the slide deck                                             | `reports/Kairos_Deck.pptx`                                     |
-| 12  | `notebooks`   | Writes and executes four results notebooks                        | `notebooks/*.ipynb`                                            |
+| #   | Stage         | What it does                                                       | Main output                                                        |
+| --- | ------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| 1   | `data`        | Downloads (or reuses the cache), aligns, validates and hashes      | `data/processed/panel_daily.csv`, `data_manifest.csv`              |
+| 2   | `regimes`     | Fits the walk-forward HMM and the volatility rule                  | `data/processed/regimes_daily.csv`                                 |
+| 3   | `features`    | Builds causal monthly features                                     | `data/processed/features_monthly.csv`                              |
+| 4   | `forecast`    | Walk-forward forecasts, stacking, calibration and skill metrics    | `data/processed/forecasts_<asset>.csv`, `skill_by_period.csv`      |
+| 5   | `diagnostics` | Re-fits models under alternative designs, tests the LSTM repair    | `ic_diagnostics*.csv`, `regime_return_link.csv`, `lstm_repair.csv` |
+| 6   | `shap`        | Explains the forecasts by regime                                   | `results/tables/shap_<asset>.csv`                                  |
+| 7   | `portfolio`   | Builds portfolios, backtests, tests significance, splits periods   | `results/tables/*.csv`                                             |
+| 8   | `sensitivity` | One-at-a-time parameter grid and the prior comparison              | `sensitivity.csv`, `prior_comparison.csv`                          |
+| 9   | `windows`     | Re-runs forecasts and backtest with a crisis-inclusive window      | `window_robustness.csv`, `window_significance.csv`                 |
+| 10  | `holdout`     | Freezes the specification and scores months added after the freeze | `holdout_status.csv`, `results/freeze.json`                        |
+| 11  | `figures`     | Draws the seventeen report figures                                 | `results/figures/*.png`                                            |
+| 12  | `report`      | Writes the report in Markdown and Word                             | `reports/Kairos_Report.md`                                         |
+| 13  | `deck`        | Builds the slide deck                                              | `reports/Kairos_Deck.pptx`                                         |
+| 14  | `notebooks`   | Writes and executes four results notebooks                         | `notebooks/*.ipynb`                                                |
 
-The diagnostics stage takes about ten minutes on a single core. The forecast stage is the slowest stage overall.
+The forecast, diagnostics, sensitivity and windows stages are the slow ones (a few minutes to about fifteen on one core). `python run.py all` takes roughly an hour on a single core.
 
 ---
 
@@ -86,7 +88,9 @@ Daily adjusted closes come from Yahoo Finance between 2003 and September 2026. N
 | ^VIX    | Volatility input for regimes and features  | n/a          |
 | ^IRX    | 13-week T-bill, used as the risk-free rate | n/a          |
 
-The prior weights are a hand-picked reference allocation, not an observed market-capitalisation series. The `prior=equal` sensitivity run shows how much the results depend on them.
+The prior weights are a hand-picked reference allocation, not an observed market-capitalisation series, and no observed series is bundled because none could be sourced for these exchange-traded funds without hand-picking new splits. Alternatives are tested in `prior_comparison.csv`: equal weight, trailing inverse volatility, and an observed prior. To use an observed prior, place `data/raw/prior_weights.csv` with a date index and one weight column per ticker (for example annual market-value weights from a published global market portfolio dataset); the comparison then adds it automatically. Each Black-Litterman portfolio is compared with the portfolio that holds its own prior, because a different prior is a different starting portfolio.
+
+`data/processed/data_manifest.csv` records the rows, date range and file hash of every cached series. A fresh download (`python run.py all --refresh`) can be compared against it. The data stage needs network access to Yahoo Finance for that, and later runs reuse the cache.
 
 `validate_panel` checks every run before any model sees the data.
 
@@ -114,21 +118,23 @@ The prior weights are a hand-picked reference allocation, not an observed market
 
 ### Forecasting
 
-| Item          | Setting                                                                                                                                           |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Target        | Next-month log return per asset                                                                                                                   |
-| Features      | About 20 causal technical, volatility, momentum, drawdown and beta features per asset, plus VIX level, change and z-score, and the regime signals |
-| Single models | XGBoost, Random Forest, Ridge, NumPy LSTM                                                                                                         |
-| LSTM          | One layer, 12 hidden units, 12-month sequences, refit every 6 months                                                                              |
-| Ensembles     | Equal weight, and a stacked non-negative least squares blend over the trailing 24 months                                                          |
-| Validation    | Expanding walk-forward after a 48-month initial training window                                                                                   |
-| Skill metrics | Information coefficient, hit rate against the always-up baseline, out-of-sample R2 against an expanding historical mean, and forecast dispersion  |
+| Item          | Setting                                                                                                                                                                           |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Target        | Next-month log return per asset                                                                                                                                                   |
+| Features      | About 20 causal technical, volatility, momentum, drawdown and beta features per asset, plus VIX level, change and z-score, and the regime signals                                 |
+| Single models | XGBoost, Random Forest and Ridge per asset, NumPy LSTM, and two pooled cross-asset models (ridge, XGBoost) trained on deviations from each asset's expanding mean                 |
+| LSTM          | One layer, 12 hidden units, 12-month sequences, refit every 6 months, training target scaled by its training mean and standard deviation                                          |
+| Baseline      | Expanding historical mean                                                                                                                                                         |
+| Ensembles     | Equal weight and non-negative stack of the original four models (`ensemble_stacked`), and a convex stack of all candidates including the historical mean (`stack_all`)            |
+| Calibration   | `ensemble_final` shrinks `stack_all` toward the historical mean by the trailing 36-month slope of realised on predicted deviations, clipped to 0 to 1, zero until 24 months exist |
+| Validation    | Expanding walk-forward after a 48-month initial training window; every forecast column is empty until that window ends                                                            |
+| Skill metrics | Information coefficient, hit rate against the always-up baseline, out-of-sample R2 against the historical mean, and forecast dispersion, by period                                |
 
 ### Forecast diagnostics
 
 | Item        | Setting                                                                                                                           |
 | ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Models      | XGBoost, Random Forest and Ridge, pooled by equal weight                                                                          |
+| Models      | XGBoost, Random Forest and Ridge, pooled by equal weight; the LSTM is also re-run without target scaling                          |
 | Designs     | As specified, no regime features, no stress features (regime and VIX), 72-month initial window, no regime features with 72 months |
 | Comparison  | Dates common to all designs, so differences are not driven by sample length                                                       |
 | Regime link | Rank correlation of the stress probability with next-month return, inside and after the initial window                            |
@@ -136,21 +142,22 @@ The prior weights are a hand-picked reference allocation, not an observed market
 
 ### Portfolio construction
 
-| Item             | Setting                                                          |
-| ---------------- | ---------------------------------------------------------------- |
-| Prior            | Reference market weights, scaled to the eligible universe        |
-| Views            | Stacked forecasts as absolute views                              |
-| View uncertainty | Trailing forecast error variance                                 |
-| Covariance       | Ledoit-Wolf shrinkage on a 60-month window                       |
-| Cash             | Optimiser may hold cash, so higher risk aversion lowers exposure |
-| Position cap     | 35% per asset                                                    |
-| Stress response  | Risk aversion multiplied by 1.8 and view uncertainty by 2.5      |
+| Item             | Setting                                                                                 |
+| ---------------- | --------------------------------------------------------------------------------------- |
+| Prior            | Reference weights by default; equal, inverse-volatility and observed priors are options |
+| Views            | Calibrated forecasts (`ensemble_final`) as absolute views                               |
+| View uncertainty | Trailing forecast error variance                                                        |
+| Covariance       | Ledoit-Wolf shrinkage on a 60-month window                                              |
+| Cash             | Optimiser may hold cash, so higher risk aversion lowers exposure                        |
+| Position cap     | 35% per asset                                                                           |
+| Stress response  | Risk aversion multiplied by 1.8 and view uncertainty by 2.5                             |
 
 | Variant              | Description                                                                           |
 | -------------------- | ------------------------------------------------------------------------------------- |
 | `BL_ML_Regime`       | Black-Litterman with regime scaling                                                   |
 | `BL_ML_Regime_IC`    | Regime scaling plus views scaled by each asset's trailing IC                          |
 | `BL_ML_NoRegime`     | Same engine without regime scaling, used as the ablation                              |
+| `BL_ML_Raw_Regime`   | Regime scaling with the original uncalibrated stacked forecasts as views              |
 | `BL_HistMean_Regime` | Regime scaling with expanding historical-mean views instead of machine learning views |
 
 ### Benchmarks
@@ -171,17 +178,20 @@ All benchmarks use the same eligible universe as the Kairos portfolios. The two 
 
 ## Evaluation
 
-| Component         | Detail                                                                                                              |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
-| Rebalancing       | Monthly, with weight drift between rebalances                                                                       |
-| Transaction costs | 10 bps on traded notional, with a 0, 10, 25 and 50 bps grid                                                         |
-| Cash return       | T-bill rate                                                                                                         |
-| Sharpe ratio      | Measured on excess returns over the T-bill rate                                                                     |
-| Significance      | Paired stationary bootstrap of the Sharpe difference, centred on the null, 4,000 draws with 6-month blocks          |
-| Regime split      | Calm and stressed decision months reported separately                                                               |
-| Sub-period check  | Sharpe ratio in each half of the sample                                                                             |
-| Deflated Sharpe   | Probability the Sharpe ratio is positive after allowing for 3 and 10 trials (tests against zero, not against 60/40) |
-| Sensitivity       | One-at-a-time grid over `tau`, `base_delta`, the stress multipliers, the position cap and the prior                 |
+| Component         | Detail                                                                                                                 |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Rebalancing       | Monthly, with weight drift between rebalances                                                                          |
+| Transaction costs | 10 bps on traded notional, with a 0, 10, 25 and 50 bps grid                                                            |
+| Cash return       | T-bill rate                                                                                                            |
+| Sharpe ratio      | Measured on excess returns over the T-bill rate                                                                        |
+| Significance      | Paired stationary bootstrap of the Sharpe difference, centred on the null, 4,000 draws with 6-month blocks             |
+| Regime split      | Calm and stressed decision months reported separately                                                                  |
+| Sub-period check  | Sharpe ratio in each half of the sample                                                                                |
+| Deflated Sharpe   | Probability the Sharpe ratio is positive after allowing for 5 and 10 trials (tests against zero, not against 60/40)    |
+| Period split      | Performance and paired Sharpe tests before and from 2019                                                               |
+| Crisis window     | Forecasts start after a 24-month initial period, which adds 2008 to the backtest                                       |
+| Frozen holdout    | Freeze date and specification hash stored in `results/freeze.json`; months realised later are scored without re-tuning |
+| Sensitivity       | One-at-a-time grid over `tau`, `base_delta`, the stress multipliers, the position cap and three priors                 |
 
 | Metric        | Definition                                       |
 | ------------- | ------------------------------------------------ |
@@ -202,7 +212,7 @@ All benchmarks use the same eligible universe as the Kairos portfolios. The two 
 | ------------------ | ----------------------------------------------------------------------- |
 | `data/processed/`  | Validated panel, regimes, monthly features, forecasts, weights, returns |
 | `results/tables/`  | All metric tables as CSV                                                |
-| `results/figures/` | Fourteen report figures                                                 |
+| `results/figures/` | Seventeen report figures                                                |
 | `reports/`         | `Kairos_Report.md` and `.docx`, `Kairos_Deck.pptx`                      |
 | `notebooks/`       | Four executed notebooks that display the results tables and figures     |
 
@@ -219,16 +229,16 @@ The report, deck and notebooks read the results files, so no number is typed by 
 
 ## Project layout
 
-| Path         | Responsibility                                                 |
-| ------------ | -------------------------------------------------------------- |
-| `config.py`  | Parameters, seeds and paths                                    |
-| `run.py`     | Command line entry point                                       |
-| `data/`      | Download, panel build and validation                           |
-| `features/`  | Causal feature engineering                                     |
-| `models/`    | Regimes, forecasting, diagnostics, LSTM, SHAP, Black-Litterman |
-| `backtest/`  | Strategies, engine, bootstrap test, sensitivity                |
-| `reporting/` | Figures, report, deck and notebooks                            |
-| `tests/`     | Unit and end-to-end tests                                      |
+| Path         | Responsibility                                                    |
+| ------------ | ----------------------------------------------------------------- |
+| `config.py`  | Parameters, seeds and paths                                       |
+| `run.py`     | Command line entry point                                          |
+| `data/`      | Download, panel build and validation                              |
+| `features/`  | Causal feature engineering                                        |
+| `models/`    | Regimes, forecasting, diagnostics, LSTM, SHAP, Black-Litterman    |
+| `backtest/`  | Strategies, engine, bootstrap test, sensitivity, windows, holdout |
+| `reporting/` | Figures, report, deck and notebooks                               |
+| `tests/`     | Unit and end-to-end tests                                         |
 
 ---
 
@@ -236,22 +246,25 @@ The report, deck and notebooks read the results files, so no number is typed by 
 
 All parameters live in `config.py`, and the random seed is fixed at 690.
 
-| Parameter              | Value    | Meaning                                         |
-| ---------------------- | -------- | ----------------------------------------------- |
-| `INITIAL_TRAIN_MONTHS` | 48       | Months used only for initial training           |
-| `HMM_REFIT_EVERY`      | 252      | Trading days between HMM refits                 |
-| `STRESS_THRESHOLD`     | 0.5      | Probability cutoff for the stressed regime      |
-| `STACK_WINDOW`         | 24       | Months used to fit stacking weights             |
-| `TAU`                  | 0.05     | Black-Litterman prior uncertainty               |
-| `BASE_DELTA`           | 2.5      | Baseline risk aversion                          |
-| `STRESSED_DELTA_MULT`  | 1.8      | Risk aversion multiplier in stress              |
-| `STRESSED_OMEGA_MULT`  | 2.5      | View uncertainty multiplier in stress           |
-| `MAX_WEIGHT`           | 0.35     | Per-asset position cap                          |
-| `COV_WINDOW`           | 60       | Months in the covariance estimate               |
-| `COST_BPS`             | 10       | Base transaction cost                           |
-| `DIAG_INITIAL_TRAIN`   | 72       | Initial window in the longer-window diagnostic  |
-| `DSR_TRIALS`           | 3, 10    | Trial counts used for the deflated Sharpe ratio |
-| `SENSITIVITY_GRID`     | see file | Parameter values in the sensitivity runs        |
+| Parameter              | Value      | Meaning                                                       |
+| ---------------------- | ---------- | ------------------------------------------------------------- |
+| `INITIAL_TRAIN_MONTHS` | 48         | Months used only for initial training                         |
+| `HMM_REFIT_EVERY`      | 252        | Trading days between HMM refits                               |
+| `STRESS_THRESHOLD`     | 0.5        | Probability cutoff for the stressed regime                    |
+| `STACK_WINDOW`         | 24         | Months used to fit stacking weights                           |
+| `TAU`                  | 0.05       | Black-Litterman prior uncertainty                             |
+| `BASE_DELTA`           | 2.5        | Baseline risk aversion                                        |
+| `STRESSED_DELTA_MULT`  | 1.8        | Risk aversion multiplier in stress                            |
+| `STRESSED_OMEGA_MULT`  | 2.5        | View uncertainty multiplier in stress                         |
+| `MAX_WEIGHT`           | 0.35       | Per-asset position cap                                        |
+| `COV_WINDOW`           | 60         | Months in the covariance estimate                             |
+| `COST_BPS`             | 10         | Base transaction cost                                         |
+| `DIAG_INITIAL_TRAIN`   | 72         | Initial window in the longer-window diagnostic                |
+| `DSR_TRIALS`           | 5, 10      | Trial counts used for the deflated Sharpe ratio               |
+| `CALIBRATION_WINDOW`   | 36         | Months used to calibrate forecasts toward the historical mean |
+| `HOLDOUT_START`        | 2019-01-01 | Start of the later period in the period split                 |
+| `CRISIS_INITIAL_TRAIN` | 24         | Initial training months in the crisis-inclusive window        |
+| `SENSITIVITY_GRID`     | see file   | Parameter values in the sensitivity runs                      |
 
 Dependencies are pinned in `requirements.txt`.
 
@@ -261,15 +274,16 @@ Dependencies are pinned in `requirements.txt`.
 
 Run the suite with `python -m pytest tests -q`. Tests use a factor-model fixture panel from `tests/fixtures.py`, never the real results.
 
-| Test file                 | Coverage                                                                   |
-| ------------------------- | -------------------------------------------------------------------------- |
-| `test_data.py`            | Panel building and validation rules                                        |
-| `test_features.py`        | Causality of features                                                      |
-| `test_regime.py`          | Causality and behaviour of regime detection                                |
-| `test_lstm.py`            | Gradient correctness of the NumPy LSTM                                     |
-| `test_forecasting.py`     | Walk-forward forecasting and stacking                                      |
-| `test_new_features.py`    | Deflated Sharpe, overlay, parameters, R2 and hit-rate metrics, diagnostics |
-| `test_hygiene.py`         | No long dashes, emojis or patch-log comments in text files                 |
-| `test_black_litterman.py` | Black-Litterman algebra and optimiser                                      |
-| `test_backtest.py`        | Timing, accounting, bootstrap calibration                                  |
-| `test_pipeline.py`        | Full end-to-end run through report and deck                                |
+| Test file                 | Coverage                                                                                                    |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `test_data.py`            | Panel building and validation rules                                                                         |
+| `test_features.py`        | Causality of features                                                                                       |
+| `test_regime.py`          | Causality and behaviour of regime detection                                                                 |
+| `test_lstm.py`            | Gradient correctness of the NumPy LSTM                                                                      |
+| `test_forecasting.py`     | Walk-forward forecasting and stacking                                                                       |
+| `test_new_features.py`    | Deflated Sharpe, overlay, parameters, R2 and hit-rate metrics, diagnostics                                  |
+| `test_robustness.py`      | Calibration, convex stacking, LSTM scale, pooled models, priors, freeze and holdout, period split, manifest |
+| `test_hygiene.py`         | No long dashes, emojis or patch-log comments in text files                                                  |
+| `test_black_litterman.py` | Black-Litterman algebra and optimiser                                                                       |
+| `test_backtest.py`        | Timing, accounting, bootstrap calibration                                                                   |
+| `test_pipeline.py`        | Full end-to-end run through report and deck                                                                 |

@@ -22,6 +22,22 @@ def load_results(paths=config.PATHS):
         "ic_diag": pd.read_csv(t / "ic_diagnostics.csv"),
         "ic_summary": pd.read_csv(t / "ic_diagnostics_summary.csv", index_col=0),
         "regime_link": pd.read_csv(t / "regime_return_link.csv"),
+        "skill_period": pd.read_csv(t / "skill_by_period.csv"),
+        "stack_weights": pd.read_csv(t / "stack_weights.csv", index_col=0),
+        "lstm_repair": pd.read_csv(t / "lstm_repair.csv"),
+        "period": pd.read_csv(t / "period_split.csv", index_col=[0, 1]),
+        "period_sig": pd.read_csv(t / "period_significance.csv"),
+        "prior": pd.read_csv(t / "prior_comparison.csv"),
+        "window": pd.read_csv(t / "window_robustness.csv", index_col=0),
+        "window_sig": pd.read_csv(t / "window_significance.csv"),
+        "window_meta": pd.read_csv(t / "window_meta.csv"),
+        "holdout_status": pd.read_csv(t / "holdout_status.csv"),
+        "holdout_metrics": (
+            pd.read_csv(t / "holdout_metrics.csv", index_col=0)
+            if (t / "holdout_metrics.csv").exists()
+            else None
+        ),
+        "manifest": pd.read_csv(paths.processed / "data_manifest.csv"),
     }
 
 
@@ -130,12 +146,12 @@ def findings(res):
         f"{out['BL_ML_Regime_IC_vs_best']}."
     )
     out["forecast_summary"] = (
-        f"the stacked ensemble has a mean out-of-sample information coefficient of {out['mean_ic']:.3f}. "
+        f"the original stacked ensemble has a mean out-of-sample information coefficient of {out['mean_ic']:.3f}. "
         f"{out['sig_neg']} of {out['n_assets']} assets show an IC that is significantly negative at the 5% level"
         + (f" ({out['neg_assets']})" if out["sig_neg"] else "")
         + f" and {out['sig_pos']} show one that is significantly positive"
         + (f" ({out['pos_assets']})" if out["sig_pos"] else "")
-        + f". The stacked ensemble beats the mean of the single models on {out['ens_beats']} of {out['n_assets']} assets."
+        + f". The original stacked ensemble beats the mean of the single models on {out['ens_beats']} of {out['n_assets']} assets."
     )
     return out
 
@@ -143,14 +159,14 @@ def findings(res):
 def _forecast_paragraph(f):
     text = (
         f"The forecasting layer is the weak link: {f['forecast_summary']} "
-        f"Measured against an expanding historical-mean forecast, the stacked ensemble has a negative out-of-sample R2 on "
+        f"Measured against an expanding historical-mean forecast, the original stacked ensemble has a negative out-of-sample R2 on "
         f"{f['r2_neg_assets']} of {f['n_assets']} assets (mean {f['mean_r2']:.3f}), and across all models and assets "
         f"{f['r2_neg_pairs']} of {f['r2_pairs']} model-asset R2 values are negative."
     )
     spy = f["spy"]
     if spy is not None:
         text += (
-            f" Hit rates flatter the models: for SPY the stacked ensemble calls an up month in {spy['UpShare_stacked']:.0%} of months "
+            f" Hit rates flatter the models: for SPY the original stacked ensemble calls an up month in {spy['UpShare_stacked']:.0%} of months "
             f"and is right {spy['Hit_ensemble_stacked']:.1%} of the time, while SPY rose in {spy['BaseRate']:.1%} of months"
             + (
                 ", so an always-up rule would have scored higher"
@@ -263,6 +279,12 @@ def _overlay_paragraph(res):
         + tests
         + ", so the machine learning and Black-Litterman machinery shows no measurable benefit beyond the defensive exposure cut."
     )
+    if config.RAW in s.index:
+        n_raw = pair(sig, "BL_ML_Regime", config.RAW)
+        text += (
+            f" With the original, uncalibrated views the Sharpe ratio is {s.at[config.RAW, 'Sharpe']:.2f}, and the Sharpe difference "
+            f"of the calibrated BL_ML_Regime to it is {describe_diff(n_raw)}."
+        )
     if config.NAIVE in s.index:
         n_ml = pair(sig, "BL_ML_Regime", config.NAIVE)
         text += (
@@ -306,8 +328,9 @@ def _sample_paragraph(res):
     b = sub.at["Static_60_40", "SecondHalfSharpe"]
     fell = int((sub["SecondHalfSharpe"] < sub["FirstHalfSharpe"]).sum())
     return (
-        f"The backtest starts in January 2009, after the crisis trough, so it covers a long equity bull market that favours "
-        f"benchmarks with a high equity weight and leaves the 2008 drawdown outside the test. The Sharpe ratio of static 60/40 is "
+        f"The main backtest starts in January 2009, after the crisis trough, so it covers a long equity bull market that favours "
+        f"benchmarks with a high equity weight and leaves the 2008 drawdown outside the main window; the crisis-inclusive window "
+        f"below adds it. The Sharpe ratio of static 60/40 is "
         f"{a:.2f} in the first half of the sample and {b:.2f} in the second, and {fell} of {len(sub)} strategies show a lower "
         f"Sharpe ratio in the second half, so conclusions about relative performance depend on the period."
     )
@@ -322,8 +345,8 @@ def _exploratory_paragraph(res):
     if any(v.empty for v in dsr.values()):
         return ""
     text = (
-        f"{best} has the highest Sharpe ratio of the three Kairos variants, but it is the best of {len(kair)} variants tried on one "
-        f"sample and should be read as exploratory. Its deflated Sharpe ratio gives a probability of {dsr[lo].iloc[0]['DSR']:.3f} "
+        f"{best} has the highest Sharpe ratio of the three Kairos variants, but it is the best of several variants tried on one "
+        f"sample (five counting the raw-view and historical-mean ablations) and should be read as exploratory. Its deflated Sharpe ratio gives a probability of {dsr[lo].iloc[0]['DSR']:.3f} "
         f"that the true Sharpe ratio is positive after allowing for {lo} trials and {dsr[hi].iloc[0]['DSR']:.3f} after allowing for {hi}. "
         "This tests the Sharpe ratio against zero, not against 60/40, so it does not contradict the paired comparisons above."
     )
@@ -368,16 +391,172 @@ def _sensitivity_paragraph(res):
     return text
 
 
+def _skill_value(skill, forecast, period):
+    row = skill[(skill["Forecast"] == forecast) & (skill["Period"] == period)]
+    return float(row["MeanR2OOS"].iloc[0]) if len(row) else np.nan
+
+
+def _repair_paragraph(res):
+    lr, skill = res["lstm_repair"], res["skill_period"]
+    if lr.empty or skill.empty:
+        return ""
+    cut = pd.Timestamp(config.HOLDOUT_START).date()
+    text = (
+        f"The LSTM trained on raw monthly returns produced forecasts about {lr['Disp_raw'].mean():.1f} times as variable as "
+        f"realised returns (mean R2 {lr['R2OOS_raw'].mean():.1f}). Scaling the training target by its training mean and standard "
+        f"deviation brings the ratio to {lr['Disp_fixed'].mean():.2f} and the mean R2 to {lr['R2OOS_fixed'].mean():.2f}. "
+        f"Two pooled cross-asset models, a convex stacker that includes the historical mean as a candidate, and a causal calibration "
+        f"that shrinks the stacked forecast toward the historical mean by the trailing {config.CALIBRATION_WINDOW}-month "
+        "slope were added."
+    )
+    final = {
+        p: _skill_value(skill, config.VIEW_COLUMN, p)
+        for p in ("full", "development", "holdout")
+    }
+    raw = {
+        p: _skill_value(skill, config.RAW_VIEW_COLUMN, p)
+        for p in ("full", "development", "holdout")
+    }
+    text += (
+        f" Mean R2 against the historical mean is {final['full']:.3f} for the calibrated forecast, against {raw['full']:.3f} for "
+        f"the original stacked ensemble. Before {cut} the values are {final['development']:.3f} and {raw['development']:.3f}; "
+        f"from {cut} they are {final['holdout']:.3f} and {raw['holdout']:.3f}. IC is not informative for a forecast that is mostly the "
+        "historical mean, so R2 is the metric used here."
+    )
+    positive = skill[(skill["Period"] != "full") & (skill["MeanR2OOS"] > 0)]
+    if positive.empty:
+        text += (
+            " No forecast, single model or ensemble, has a positive mean R2 in either period, so the repairs remove the harm done by "
+            "badly scaled forecasts but do not create skill. The calibrated forecast behaves almost like the historical mean, "
+            "which remains the best return forecast in this sample."
+        )
+    else:
+        names = ", ".join(sorted(set(positive["Forecast"])))
+        text += f" Forecasts with a positive mean R2 in at least one period: {names}."
+    return text
+
+
+def _window_paragraph(res):
+    w, meta, sig = res["window"], res["window_meta"], res["window_sig"]
+    need = ["BL_ML_Regime", "Static_60_40", "Regime_60_40"]
+    if w.empty or not all(n in w.index for n in need):
+        return ""
+    start = meta["first_decision"].iloc[0]
+    months = int(w["Months_crisis_window"].iloc[0])
+    text = (
+        f"A crisis-inclusive window starts the out-of-sample forecasts in {start} with a {int(meta['initial_train_months'].iloc[0])}-month "
+        f"initial training period, which adds the 2008 crisis to the test ({months} months). In that window Static_60_40 has a "
+        f"Sharpe ratio of {w.at['Static_60_40', 'Sharpe_crisis_window']:.2f} and a maximum drawdown of "
+        f"{w.at['Static_60_40', 'MaxDD_crisis_window']:.1%}, Regime_60_40 has {w.at['Regime_60_40', 'Sharpe_crisis_window']:.2f} and "
+        f"{w.at['Regime_60_40', 'MaxDD_crisis_window']:.1%}, and BL_ML_Regime has {w.at['BL_ML_Regime', 'Sharpe_crisis_window']:.2f} "
+        f"and {w.at['BL_ML_Regime', 'MaxDD_crisis_window']:.1%}."
+    )
+    row = pair(sig, "Regime_60_40", "Static_60_40")
+    if row is not None:
+        text += f" The Sharpe difference between the overlay and plain 60/40 is {describe_diff(row)}."
+    row = pair(sig, "BL_ML_Regime", "Regime_60_40")
+    if row is not None:
+        text += f" BL_ML_Regime against the overlay: {describe_diff(row)}."
+    return text
+
+
+def _period_paragraph(res):
+    t, sig = res["period"], res["period_sig"]
+    names = [
+        n
+        for n in ("BL_ML_Regime", "Static_60_40", "Regime_60_40")
+        if (n, "holdout") in t.index
+    ]
+    if not names:
+        return ""
+    cut = pd.Timestamp(config.HOLDOUT_START).date()
+    cells = "; ".join(
+        f"{n} {t.at[(n, 'development'), 'Sharpe']:.2f} before and {t.at[(n, 'holdout'), 'Sharpe']:.2f} from {cut}"
+        for n in names
+    )
+    text = f"Splitting the sample at {cut} gives Sharpe ratios of {cells}."
+    row = sig[
+        (sig["period"] == "holdout")
+        & (sig["strategy"] == "BL_ML_Regime")
+        & (sig["benchmark"] == "Static_60_40")
+    ]
+    if len(row):
+        text += f" In the later period the Sharpe difference between BL_ML_Regime and static 60/40 is {describe_diff(row.iloc[0])}."
+    text += (
+        " This split is a reporting device, not a clean test: the repairs were motivated by full-sample diagnostics, so only months "
+        "that arrive after the freeze date are untouched."
+    )
+    return text
+
+
+def _prior_paragraph(res):
+    t = res["prior"]
+    if t.empty:
+        return ""
+    sub = t[t["Variant"] == "BL_ML_Regime"]
+    cells = "; ".join(
+        f"{r.Prior} {r.Diff:+.2f} (p = {r.p_value:.2f})" for r in sub.itertuples()
+    )
+    text = (
+        "The Sharpe ratio of a Black-Litterman portfolio depends on the prior, because each prior is a different starting portfolio, "
+        "so the right comparison is against that prior's own portfolio. The Sharpe difference of BL_ML_Regime to its prior portfolio is: "
+        + cells
+        + "."
+    )
+    sig_any = bool(((sub["p_value"] < 0.05) & (sub["Diff"] > 0)).any())
+    text += (
+        " At least one prior shows a significant gain over its own portfolio."
+        if sig_any
+        else " No prior shows a significant gain, so the Black-Litterman layer adds little beyond the prior it starts from."
+    )
+    if "observed" in set(t["Prior"]):
+        text += " An observed prior supplied in data/raw is included."
+    else:
+        text += (
+            " No observed market-capitalisation series is bundled, because none could be sourced for these exchange-traded funds "
+            "without hand-picking splits; the pipeline accepts one in data/raw/prior_weights.csv and then adds it to this comparison."
+        )
+    return text
+
+
+def _holdout_paragraph(res):
+    st_ = res["holdout_status"].iloc[0]
+    text = (
+        f"The specification is frozen as of {st_['freeze_date']} (hash {st_['spec_hash']}). "
+        f"{int(st_['months_since_freeze'])} realised months have been added since then"
+    )
+    if not st_["spec_unchanged"]:
+        return (
+            text
+            + ", but the code or parameters have changed since the freeze, so they are not confirmatory evidence."
+        )
+    if int(st_["months_since_freeze"]) == 0:
+        return (
+            text
+            + ", so there is no confirmatory evidence yet. Re-run with refreshed data to evaluate months as they arrive."
+        )
+    return text + (
+        ", enough for inference."
+        if st_["inference_possible"]
+        else ", too few for inference (at least 24 are needed)."
+    )
+
+
 def discussion(res, f):
     parts = [
         f["answer"],
         _forecast_paragraph(f),
+        _repair_paragraph(res),
         _diagnosis_paragraph(res),
         _overlay_paragraph(res),
         _stress_paragraph(res),
         _sample_paragraph(res),
+        _period_paragraph(res),
+        _window_paragraph(res),
         _exploratory_paragraph(res),
         _sensitivity_paragraph(res),
+        _prior_paragraph(res),
+        _holdout_paragraph(res),
     ]
     return [p for p in parts if p]
 
@@ -420,5 +599,29 @@ def summary_points(res, f):
         f"Regimes: the walk-forward HMM flags {f['hmm_stress']:.0%} of days inside the documented stress windows and "
         f"{f['hmm_calm']:.0%} of days inside the calm control windows, against {f['vol_stress']:.0%} and {f['vol_calm']:.0%} for the volatility rule."
     )
+    skill = res["skill_period"]
+    pos = skill[(skill["Period"] != "full") & (skill["MeanR2OOS"] > 0)]
+    points.append(
+        f"Forecast repair: the LSTM's dispersion falls from {res['lstm_repair']['Disp_raw'].mean():.1f}x to "
+        f"{res['lstm_repair']['Disp_fixed'].mean():.2f}x realised returns, and the calibrated forecast has a mean R2 of "
+        f"{_skill_value(skill, config.VIEW_COLUMN, 'full'):.3f} against the historical mean. "
+        + (
+            "No forecast has a positive mean R2 in either the development or the holdout period."
+            if pos.empty
+            else "Some forecasts have a positive mean R2 in at least one period."
+        )
+    )
+    pr = res["prior"][res["prior"]["Variant"] == "BL_ML_Regime"]
+    points.append(
+        "Prior: BL_ML_Regime adds a significant Sharpe gain over its own prior portfolio for "
+        f"{int(((pr['p_value'] < 0.05) & (pr['Diff'] > 0)).sum())} of {len(pr)} priors tested."
+    )
+    w = res["window"]
+    if "Regime_60_40" in w.index:
+        points.append(
+            f"Crisis window: Regime_60_40 has a maximum drawdown of {w.at['Regime_60_40', 'MaxDD_crisis_window']:.1%} against "
+            f"{w.at['Static_60_40', 'MaxDD_crisis_window']:.1%} for static 60/40 when 2008 is included."
+        )
+    points.append(_holdout_paragraph(res))
     points.append("Sharpe ranking: " + f["ranking"] + ".")
     return points

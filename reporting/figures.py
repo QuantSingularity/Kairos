@@ -37,6 +37,7 @@ ORDER = [
     "BL_ML_Regime",
     "BL_ML_Regime_IC",
     "BL_ML_NoRegime",
+    "BL_ML_Raw_Regime",
     "BL_HistMean_Regime",
     "Market_Reference",
     "Equal_Weight",
@@ -115,14 +116,14 @@ def regime_validation(table, paths):
 
 
 def model_ic(table, paths):
-    cols = [f"IC_{m}" for m in config.MODELS] + ["IC_ensemble_stacked"]
+    cols = [f"IC_{m}" for m in config.MODELS + config.POOLED] + ["IC_ensemble_stacked"]
     t = table.set_index("Asset")[[c for c in cols if c in table]]
     fig, ax = plt.subplots(figsize=(8, 3.8))
     t.plot.bar(ax=ax, width=0.8, color=COLORS[: len(t.columns)])
     ax.axhline(0, color="black", lw=0.6)
     ax.set_ylabel("Out-of-sample Spearman IC")
     ax.set_title("Forecast information coefficient by asset and model")
-    ax.legend([c.replace("IC_", "") for c in t.columns], ncol=5, fontsize=7)
+    ax.legend([c.replace("IC_", "") for c in t.columns], ncol=4, fontsize=6)
     plt.setp(ax.get_xticklabels(), rotation=0)
     _save(fig, paths, "04_model_ic.png")
 
@@ -218,10 +219,22 @@ def forecast_skill(table, paths):
     t = table.dropna(subset=["IC_ensemble_stacked"]).set_index("Asset")
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
     t["IC_ensemble_stacked"].plot.bar(ax=axes[0], color="#1f77b4")
-    axes[0].set_title("Stacked IC")
-    t["R2OOS_ensemble_stacked"].plot.bar(ax=axes[1], color="#d62728")
-    axes[1].set_title("Stacked R2 against historical mean")
+    axes[0].set_title("IC, original stacked ensemble")
     x = np.arange(len(t))
+    axes[1].bar(
+        x - 0.2,
+        t["R2OOS_ensemble_stacked"],
+        0.4,
+        label="Original stacked",
+        color="#d62728",
+    )
+    axes[1].bar(
+        x + 0.2, t["R2OOS_ensemble_final"], 0.4, label="Calibrated", color="#2ca02c"
+    )
+    axes[1].set_xticks(x)
+    axes[1].set_xticklabels(t.index)
+    axes[1].set_title("R2 against historical mean")
+    axes[1].legend(fontsize=7)
     axes[2].bar(
         x - 0.2, t["BaseRate"], 0.4, label="Always-up baseline", color="#7f7f7f"
     )
@@ -229,7 +242,7 @@ def forecast_skill(table, paths):
         x + 0.2,
         t["Hit_ensemble_stacked"],
         0.4,
-        label="Stacked hit rate",
+        label="Original stacked hit rate",
         color="#2ca02c",
     )
     axes[2].set_xticks(x)
@@ -289,6 +302,7 @@ def overlay_ablation(summary, paths):
         for n in (
             "BL_ML_Regime",
             "BL_ML_Regime_IC",
+            "BL_ML_Raw_Regime",
             "BL_HistMean_Regime",
             "Regime_60_40",
             "Static_60_40",
@@ -297,7 +311,7 @@ def overlay_ablation(summary, paths):
         )
         if n in summary.index
     ]
-    fig, axes = plt.subplots(1, 2, figsize=(10, 3.8))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
     colors = [COLORS[i] for i in range(len(names))]
     axes[0].barh(
         names[::-1], summary.loc[names, "Sharpe"].values[::-1], color=colors[::-1]
@@ -309,6 +323,85 @@ def overlay_ablation(summary, paths):
     axes[1].set_title("Maximum drawdown")
     axes[1].set_yticklabels([])
     _save(fig, paths, "14_overlay_ablation.png")
+
+
+def forecast_repair(skill, paths):
+    t = skill[skill["Period"].isin(["development", "holdout"])]
+    wide = t.pivot(index="Forecast", columns="Period", values="MeanR2OOS")
+    order = [f for f in skill["Forecast"].unique() if f in wide.index]
+    wide = wide.reindex(order)[["development", "holdout"]]
+    fig, ax = plt.subplots(figsize=(10, 3.8))
+    x = np.arange(len(wide))
+    ax.bar(
+        x - 0.2,
+        wide["development"],
+        0.4,
+        label=f"Before {config.HOLDOUT_START[:4]}",
+        color="#1f77b4",
+    )
+    ax.bar(
+        x + 0.2,
+        wide["holdout"],
+        0.4,
+        label=f"From {config.HOLDOUT_START[:4]}",
+        color="#ff7f0e",
+    )
+    ax.axhline(0, color="black", lw=0.6)
+    ax.set_xticks(x)
+    ax.set_xticklabels(wide.index, rotation=30, ha="right", fontsize=8)
+    ax.set_title("Mean R2 against the historical mean, by forecast and period")
+    ax.legend(fontsize=8)
+    _save(fig, paths, "15_forecast_repair.png")
+
+
+def window_robustness(table, paths):
+    names = [n for n in ORDER if n in table.index]
+    fig, ax = plt.subplots(figsize=(10, 3.8))
+    x = np.arange(len(names))
+    ax.bar(
+        x - 0.2,
+        table.loc[names, "Sharpe_main"],
+        0.4,
+        label="Main window",
+        color="#1f77b4",
+    )
+    ax.bar(
+        x + 0.2,
+        table.loc[names, "Sharpe_crisis_window"],
+        0.4,
+        label="Crisis-inclusive window",
+        color="#d62728",
+    )
+    ax.set_xticks(x)
+    ax.set_xticklabels(names, rotation=30, ha="right", fontsize=8)
+    ax.set_title("Sharpe ratio by evaluation window")
+    ax.legend(fontsize=8)
+    _save(fig, paths, "16_window_robustness.png")
+
+
+def prior_comparison(table, paths):
+    priors = list(table["Prior"].unique())
+    variants = list(table["Variant"].unique())
+    fig, ax = plt.subplots(figsize=(9, 3.8))
+    width = 0.8 / (len(variants) + 1)
+    x = np.arange(len(priors))
+    base = (
+        table.drop_duplicates("Prior")
+        .set_index("Prior")
+        .loc[priors, "Sharpe_PriorPortfolio"]
+    )
+    ax.bar(x - 0.4 + width / 2, base, width, label="Prior portfolio", color="#7f7f7f")
+    for i, v in enumerate(variants):
+        sub = table[table["Variant"] == v].set_index("Prior").loc[priors, "Sharpe"]
+        ax.bar(x - 0.4 + width * (i + 1.5), sub, width, label=v, color=COLORS[i])
+    ax.set_xticks(x)
+    ax.set_xticklabels(priors)
+    ax.set_title(
+        "Sharpe ratio of each prior portfolio and of the Black-Litterman portfolios built on it"
+    )
+    ax.title.set_fontsize(9)
+    ax.legend(fontsize=7)
+    _save(fig, paths, "17_prior_comparison.png")
 
 
 def run(paths=config.PATHS):
@@ -356,3 +449,8 @@ def run(paths=config.PATHS):
     overlay_ablation(
         pd.read_csv(paths.tables / "summary_metrics.csv", index_col=0), paths
     )
+    forecast_repair(pd.read_csv(paths.tables / "skill_by_period.csv"), paths)
+    window_robustness(
+        pd.read_csv(paths.tables / "window_robustness.csv", index_col=0), paths
+    )
+    prior_comparison(pd.read_csv(paths.tables / "prior_comparison.csv"), paths)

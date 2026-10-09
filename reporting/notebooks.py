@@ -52,6 +52,24 @@ SPECS = {
             "code",
             "from IPython.display import Image\nImage(str(P.figures / '14_overlay_ablation.png'))",
         ),
+        ("code", "pd.read_csv(P.tables / 'lstm_repair.csv')"),
+        ("code", "pd.read_csv(P.tables / 'skill_by_period.csv')"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '15_forecast_repair.png'))",
+        ),
+        ("code", "pd.read_csv(P.tables / 'period_split.csv')"),
+        ("code", "pd.read_csv(P.tables / 'window_robustness.csv')"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '16_window_robustness.png'))",
+        ),
+        ("code", "pd.read_csv(P.tables / 'prior_comparison.csv')"),
+        (
+            "code",
+            "from IPython.display import Image\nImage(str(P.figures / '17_prior_comparison.png'))",
+        ),
+        ("code", "pd.read_csv(P.tables / 'holdout_status.csv')"),
         ("code", "pd.read_csv(P.tables / 'sensitivity.csv')"),
         (
             "code",

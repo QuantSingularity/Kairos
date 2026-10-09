@@ -30,6 +30,34 @@ def default_params():
     )
 
 
+def load_prior_table(paths=config.PATHS):
+    path = paths.raw / config.OBSERVED_PRIOR_FILE
+    if not path.exists():
+        return None
+    table = pd.read_csv(path, index_col=0, parse_dates=True).sort_index()
+    return table[[c for c in table.columns if c in config.ASSETS]]
+
+
+def prior_weights(kind, names, hist, date, table=None):
+    if kind == "reference":
+        return {a: config.MARKET_WEIGHTS[a] for a in names}
+    if kind == "equal":
+        return dict.fromkeys(names, 1.0)
+    if kind == "inverse_vol":
+        return (1.0 / hist[names].std().replace(0, np.nan)).fillna(1.0).to_dict()
+    if kind == "observed":
+        if table is None or table.loc[:date].empty:
+            raise ValueError(
+                "the observed prior needs a weight table covering the date"
+            )
+        row = table.loc[:date].iloc[-1]
+        w = {a: float(np.nan_to_num(row.get(a, 0.0))) for a in names}
+        if sum(w.values()) <= 0:
+            raise ValueError("observed prior weights are empty for the eligible assets")
+        return w
+    raise ValueError(f"unknown prior {kind}")
+
+
 def shrunk_cov(returns):
     cov = LedoitWolf().fit(returns.values).covariance_
     return pd.DataFrame(cov, index=returns.columns, columns=returns.columns)
@@ -73,11 +101,11 @@ def build_universe(
     log_rets,
     min_history=config.MIN_HISTORY,
     min_universe=config.MIN_UNIVERSE,
+    view=None,
 ):
+    view = view or config.VIEW_COLUMN
     dates = sorted(
-        set().union(
-            *[set(df["ensemble_stacked"].dropna().index) for df in forecasts.values()]
-        )
+        set().union(*[set(df[view].dropna().index) for df in forecasts.values()])
     )
     history = log_rets.notna().cumsum()
     universe = {}
@@ -86,7 +114,7 @@ def build_universe(
             a
             for a, df in forecasts.items()
             if d in df.index
-            and not np.isnan(df.at[d, "ensemble_stacked"])
+            and not np.isnan(df.at[d, view])
             and history.at[d, a] >= min_history
         ]
         if len(names) >= min_universe:
@@ -94,14 +122,16 @@ def build_universe(
     return universe
 
 
-def trailing_stats(df, date, window=config.STACK_WINDOW):
-    hist = df.loc[df.index < date, ["target", "ensemble_stacked"]].dropna().tail(window)
+def trailing_stats(df, date, window=config.STACK_WINDOW, view=None):
+    view = view or config.VIEW_COLUMN
+    hist = df.loc[df.index < date, ["target", view]].dropna().tail(window)
     err_var = (
-        float(max((hist["ensemble_stacked"] - hist["target"]).var(), 1e-6))
+        float(max((hist[view] - hist["target"]).var(), 1e-6))
         if len(hist) >= 6
         else None
     )
-    ic = hist["ensemble_stacked"].corr(hist["target"]) if len(hist) >= 8 else 0.0
+    with np.errstate(invalid="ignore", divide="ignore"):
+        ic = hist[view].corr(hist["target"]) if len(hist) >= 8 else 0.0
     return err_var, 0.0 if np.isnan(ic) else float(ic)
 
 
@@ -114,8 +144,11 @@ def black_litterman_weights(
     use_regime=True,
     ic_shrink=False,
     params=None,
+    view=None,
+    prior_table=None,
 ):
     p = params or default_params()
+    view = view or config.VIEW_COLUMN
     excess = log_rets.sub(rf, axis=0)
     records = {}
     for d, names in universe.items():
@@ -123,16 +156,12 @@ def black_litterman_weights(
         cov = shrunk_cov(hist)
         stressed = use_regime and regime.get(d, 0.0) == 1.0
         delta = p.base_delta * (p.stressed_delta_mult if stressed else 1.0)
-        prior = (
-            config.MARKET_WEIGHTS
-            if p.prior == "reference"
-            else dict.fromkeys(names, 1.0)
-        )
+        prior = prior_weights(p.prior, names, hist, d, prior_table)
         pi = equilibrium_returns(cov, prior, p.base_delta)
-        Q = np.array([forecasts[a].at[d, "ensemble_stacked"] - rf.at[d] for a in names])
+        Q = np.array([forecasts[a].at[d, view] - rf.at[d] for a in names])
         omega = []
         for i, a in enumerate(names):
-            err_var, ic = trailing_stats(forecasts[a], d)
+            err_var, ic = trailing_stats(forecasts[a], d, view=view)
             base = err_var if err_var is not None else float(np.var(hist[a]))
             mult = p.stressed_omega_mult if stressed else 1.0
             if ic_shrink:

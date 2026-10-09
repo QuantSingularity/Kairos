@@ -187,6 +187,32 @@ def build(paths=config.PATHS):
     _image(s, fig("12_ic_diagnostics.png"), Inches(0.6), Inches(1.6), Inches(7.6))
     _bullets(s, _diagnosis_lines(r), x=Inches(8.6), w=Inches(4.3), size=15)
 
+    skill = r["skill_period"]
+    lr = r["lstm_repair"]
+
+    def r2(name, period):
+        row = skill[(skill["Forecast"] == name) & (skill["Period"] == period)]
+        return float(row["MeanR2OOS"].iloc[0]) if len(row) else float("nan")
+
+    s = _slide(prs, "Repairing the forecasts")
+    _image(s, fig("15_forecast_repair.png"), Inches(0.5), Inches(1.6), Inches(8.2))
+    _bullets(
+        s,
+        [
+            f"LSTM dispersion {lr['Disp_raw'].mean():.1f}x to {lr['Disp_fixed'].mean():.2f}x realised returns",
+            f"LSTM mean R2 {lr['R2OOS_raw'].mean():.1f} to {lr['R2OOS_fixed'].mean():.2f}",
+            f"Calibrated forecast R2: {r2(config.VIEW_COLUMN, 'development'):.3f} before, {r2(config.VIEW_COLUMN, 'holdout'):.3f} after {config.HOLDOUT_START[:4]}",
+            (
+                "No forecast beats the historical mean in either period"
+                if not ((skill["Period"] != "full") & (skill["MeanR2OOS"] > 0)).any()
+                else "Some forecasts beat the historical mean in one period"
+            ),
+        ],
+        x=Inches(9.0),
+        w=Inches(4.0),
+        size=15,
+    )
+
     s = _slide(prs, "Portfolio performance")
     cols = ["AnnReturn", "AnnVol", "Sharpe", "MaxDrawdown"]
     _table(s, sm[cols], Inches(0.9), Inches(1.5), Inches(11.5), 12)
@@ -215,6 +241,19 @@ def build(paths=config.PATHS):
             f"Naive historical-mean views: Sharpe {sm.at[config.NAIVE, 'Sharpe']:.2f}"
         )
     _bullets(s, lines, x=Inches(9.1), w=Inches(3.9), size=16)
+
+    w = r["window"]
+    s = _slide(prs, "Other evaluation windows")
+    _image(s, fig("16_window_robustness.png"), Inches(0.5), Inches(1.6), Inches(8.2))
+    wl = []
+    if {"Static_60_40", "Regime_60_40"} <= set(w.index):
+        wl = [
+            f"Window starts {r['window_meta']['first_decision'].iloc[0]}, includes 2008",
+            f"Max drawdown static 60/40: {w.at['Static_60_40', 'MaxDD_crisis_window']:.1%}",
+            f"Max drawdown Regime_60_40: {w.at['Regime_60_40', 'MaxDD_crisis_window']:.1%}",
+            f"BL_ML_Regime Sharpe: {w.at['BL_ML_Regime', 'Sharpe_crisis_window']:.2f}",
+        ]
+    _bullets(s, wl, x=Inches(9.0), w=Inches(4.0), size=15)
 
     s = _slide(prs, "Performance by regime")
     _image(s, fig("10_regime_performance.png"), Inches(2.2), Inches(1.6), Inches(8.6))
@@ -245,13 +284,29 @@ def build(paths=config.PATHS):
         if overlay_wins
         else "Forecasts add no measurable value beyond a mechanical stress overlay; the regime layer mainly lowers drawdowns."
     )
+    pr = r["prior"][r["prior"]["Variant"] == "BL_ML_Regime"]
+    s = _slide(prs, "Prior dependence")
+    _image(s, fig("17_prior_comparison.png"), Inches(0.5), Inches(1.6), Inches(8.2))
+    _bullets(
+        s,
+        [
+            f"{x.Prior}: Sharpe gain over its prior portfolio {x.Diff:+.2f} (p = {x.p_value:.2f})"
+            for x in pr.itertuples()
+        ],
+        x=Inches(9.0),
+        w=Inches(4.0),
+        size=14,
+    )
+
+    hs = r["holdout_status"].iloc[0]
     s = _slide(prs, "Conclusions")
     _text(
         s,
         [
             f["answer"],
             overlay_line,
-            "Limitations: about 15 years of monthly data, hand-picked reference prior, 2008 outside the backtest window.",
+            f"Specification frozen at {hs['freeze_date']}; {int(hs['months_since_freeze'])} new months evaluated so far.",
+            "Limitations: about 15 years of monthly data, no observed market-capitalisation prior, repairs designed after seeing full-sample results.",
         ],
         Inches(0.9),
         Inches(1.7),

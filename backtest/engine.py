@@ -6,7 +6,7 @@ from backtest import strategies as st
 from backtest.stats import deflated_sharpe, paired_sharpe_test
 from data.loader import month_end_dates
 from models.black_litterman import black_litterman_weights, build_universe
-from models.forecasting import historical_mean, load_forecasts
+from models.forecasting import load_forecasts
 
 
 def monthly_data(panel):
@@ -73,17 +73,19 @@ def regime_performance(bt, regime):
     return pd.DataFrame(rows).T
 
 
+def naive_forecasts(forecasts):
+    view = config.VIEW_COLUMN
+    return {
+        a: df.assign(**{view: df["hist_mean"].where(df[view].notna())})
+        for a, df in forecasts.items()
+    }
+
+
 def build_strategies(forecasts, log_rets, rf, regime):
     universe = build_universe(forecasts, log_rets)
     excess = log_rets.sub(rf, axis=0)
-    naive = {
-        a: df.assign(
-            ensemble_stacked=historical_mean(df["target"]).where(
-                df["ensemble_stacked"].notna()
-            )
-        )
-        for a, df in forecasts.items()
-    }
+    raw = config.RAW_VIEW_COLUMN
+    naive = naive_forecasts(forecasts)
     weights = {
         "BL_ML_Regime": black_litterman_weights(
             forecasts, log_rets, rf, regime, universe, True, False
@@ -94,7 +96,10 @@ def build_strategies(forecasts, log_rets, rf, regime):
         "BL_ML_NoRegime": black_litterman_weights(
             forecasts, log_rets, rf, regime, universe, False, False
         ),
-        "BL_HistMean_Regime": black_litterman_weights(
+        config.RAW: black_litterman_weights(
+            forecasts, log_rets, rf, regime, universe, True, False, view=raw
+        ),
+        config.NAIVE: black_litterman_weights(
             naive, log_rets, rf, regime, universe, True, False
         ),
         "Market_Reference": st.market_reference(universe),
@@ -118,19 +123,60 @@ def significance_pairs(names):
         ("Regime_60_40", "BL_ML_Regime"),
         ("Regime_Market", "BL_ML_Regime"),
         ("BL_ML_Regime_IC", "Regime_60_40"),
+        ("BL_ML_Regime", config.RAW),
     ]
     return list(dict.fromkeys(pairs))
 
 
 def deflated_table(excess):
-    names = [n for n in config.KAIROS if n in excess]
-    monthly = {n: excess[n].mean() / excess[n].std(ddof=1) for n in names}
-    sr_var = float(np.var(list(monthly.values()), ddof=1)) if len(names) > 1 else 0.0
+    pool = [n for n in list(config.KAIROS) + list(config.ABLATIONS) if n in excess]
+    monthly = {n: excess[n].mean() / excess[n].std(ddof=1) for n in pool}
+    sr_var = float(np.var(list(monthly.values()), ddof=1)) if len(pool) > 1 else 0.0
     rows = []
-    for n in names:
+    for n in [n for n in config.KAIROS if n in excess]:
         for trials in config.DSR_TRIALS:
             rows.append({"strategy": n, **deflated_sharpe(excess[n], trials, sr_var)})
     return pd.DataFrame(rows)
+
+
+PERIOD_PAIRS = [
+    ("BL_ML_Regime", "Static_60_40"),
+    ("BL_ML_Regime", "Regime_60_40"),
+    ("BL_ML_Regime", config.NAIVE),
+    ("BL_ML_Regime", config.RAW),
+    ("Regime_60_40", "Static_60_40"),
+]
+
+
+def period_tables(main, excess):
+    cut = pd.Timestamp(config.HOLDOUT_START)
+    parts = (("development", lambda i: i < cut), ("holdout", lambda i: i >= cut))
+    rows = {}
+    for n, bt in main.items():
+        for label, pick in parts:
+            sub = bt[pick(bt.index)]
+            if len(sub) >= 12:
+                m = performance(sub)
+                rows[(n, label)] = {
+                    k: m[k] for k in ("AnnReturn", "AnnVol", "Sharpe", "MaxDrawdown")
+                } | {"Months": len(sub)}
+    table = pd.DataFrame.from_dict(rows, orient="index")
+    table.index = pd.MultiIndex.from_tuples(table.index, names=["strategy", "period"])
+    tests = []
+    for label, pick in parts:
+        for a, b in PERIOD_PAIRS:
+            if a in excess and b in excess:
+                mask = pick(excess[a].index)
+                if mask.sum() >= 12:
+                    tests.append(
+                        {
+                            "period": label,
+                            "strategy": a,
+                            "benchmark": b,
+                            **paired_sharpe_test(excess[a][mask], excess[b][mask]),
+                        }
+                    )
+    return table, pd.DataFrame(tests)
 
 
 def run_backtest(forecasts, panel, regime, cost_grid=config.COST_GRID):
@@ -161,6 +207,7 @@ def run_backtest(forecasts, panel, regime, cost_grid=config.COST_GRID):
             "SecondHalfSharpe": performance(bt.iloc[half:])["Sharpe"],
         }
     excess = {n: bt["net"] - bt["rf"] for n, bt in main.items()}
+    period = period_tables(main, excess)
     rows = [
         {"strategy": a, "benchmark": b, **paired_sharpe_test(excess[a], excess[b])}
         for a, b in significance_pairs(list(excess))
@@ -174,6 +221,8 @@ def run_backtest(forecasts, panel, regime, cost_grid=config.COST_GRID):
         "subperiod": pd.DataFrame(sub).T,
         "significance": pd.DataFrame(rows),
         "deflated": deflated_table(excess),
+        "period": period[0],
+        "period_significance": period[1],
     }
 
 
@@ -191,6 +240,10 @@ def run(paths=config.PATHS):
     out["subperiod"].to_csv(paths.tables / "subperiod_sharpe.csv")
     out["significance"].to_csv(paths.tables / "significance.csv", index=False)
     out["deflated"].to_csv(paths.tables / "deflated_sharpe.csv", index=False)
+    out["period"].to_csv(paths.tables / "period_split.csv")
+    out["period_significance"].to_csv(
+        paths.tables / "period_significance.csv", index=False
+    )
     pd.DataFrame({n: bt["net"] for n, bt in out["returns"].items()}).to_csv(
         paths.processed / "backtest_returns.csv"
     )

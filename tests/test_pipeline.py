@@ -28,6 +28,8 @@ def staged(project):
     mp.setattr(config, "BOOTSTRAP_DRAWS", 150)
     mp.setattr(config, "SHAP_ASSETS", ["SPY"])
     mp.setattr(config, "DIAG_INITIAL_TRAIN", 48)
+    mp.setattr(config, "CRISIS_INITIAL_TRAIN", 24)
+    mp.setattr(config, "HOLDOUT_START", "2013-01-01")
     mp.setattr(config, "DIAG_MODELS", ["rf", "ridge"])
     mp.setattr(
         config,
@@ -55,6 +57,14 @@ def test_stage_outputs(staged):
         staged.processed / "forecasts_SPY.csv", index_col=0, parse_dates=True
     )
     assert f["ensemble_stacked"].notna().sum() > 20
+    assert {"pooled_ridge", "hist_mean", "stack_all", "ensemble_final"} <= set(
+        f.columns
+    )
+    first = f.index[config.INITIAL_TRAIN_MONTHS]
+    assert f["ensemble_final"].first_valid_index() == first
+    assert f["stack_all"].first_valid_index() == first
+    assert f["ensemble_stacked"].first_valid_index() >= first
+    assert (staged.processed / "data_manifest.csv").stat().st_size > 0
 
 
 def test_full_chain_to_reports(staged):
@@ -72,6 +82,19 @@ def test_full_chain_to_reports(staged):
     assert set(out["deflated"]["Trials"]) == set(config.DSR_TRIALS)
     sens = run.run_stage("sensitivity", staged)
     assert len(sens) == 4 * 2 and sens["IsDefault"].sum() == 4
+    priors = pd.read_csv(staged.tables / "prior_comparison.csv")
+    assert set(priors["Prior"]) == {"reference", "equal", "inverse_vol"}
+    assert (staged.tables / "period_split.csv").exists()
+    run.run_stage("windows", staged)
+    win = pd.read_csv(staged.tables / "window_robustness.csv", index_col=0)
+    meta = pd.read_csv(staged.tables / "window_meta.csv")
+    assert win["Months_crisis_window"].iloc[0] > win["Months_main"].iloc[0]
+    assert meta["first_decision"].iloc[0] < out["returns"]["BL_ML_Regime"].index[
+        0
+    ].strftime("%Y-%m-%d")
+    status = run.run_stage("holdout", staged).iloc[0]
+    assert status["months_since_freeze"] == 0 and status["spec_unchanged"]
+    assert (staged.root / "results" / "freeze.json").exists()
     assert np.isfinite(out["summary"]["Sharpe"]).all()
     assert len({len(bt) for bt in out["returns"].values()}) == 1
     for w in out["weights"].values():
@@ -85,9 +108,11 @@ def test_full_chain_to_reports(staged):
     assert (
         "Overlay ablation" in text and "Diagnosing the information coefficient" in text
     )
+    assert "Repairing the forecasts" in text and "Frozen specification" in text
+    assert "Crisis-inclusive window" in text and "prior portfolio" in text
     assert "significantly negative" in text
     assert "\u2014" not in text and "\u2013" not in text
-    assert deck.exists() and len(list(staged.figures.glob("*.png"))) == 14
+    assert deck.exists() and len(list(staged.figures.glob("*.png"))) == 17
     import shutil
 
     if shutil.which("pandoc"):

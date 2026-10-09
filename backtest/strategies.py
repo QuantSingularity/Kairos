@@ -55,3 +55,14 @@ def regime_overlay(weights, regime, scale=None):
     out.loc[stressed, risky] = out.loc[stressed, risky] * scale
     out["CASH"] = 1.0 - out[risky].sum(axis=1)
     return out
+
+
+def prior_portfolio(universe, kind, log_rets, table=None):
+    from models.black_litterman import prior_weights
+
+    out = {}
+    for d, names in universe.items():
+        hist = log_rets.loc[:d, names].dropna().tail(config.COV_WINDOW)
+        w = pd.Series(prior_weights(kind, names, hist, d, table), dtype=float)
+        out[d] = w / w.sum()
+    return to_frame(out)

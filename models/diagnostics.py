@@ -6,12 +6,14 @@ from scipy.stats import spearmanr
 import config
 from data.loader import month_end_dates
 from models.forecasting import (
+    LSTM_FEATURES,
     asset_frame,
     feature_columns,
     forward_targets,
     historical_mean,
     load_forecasts,
     r2_oos,
+    walk_forward_lstm,
     walk_forward_sklearn,
 )
 
@@ -133,6 +135,31 @@ def regime_return_link(F, log_price, assets):
     return pd.DataFrame(rows)
 
 
+def lstm_comparison(F, log_price, forecasts, assets):
+    rows = []
+    for a in assets:
+        if a not in forecasts:
+            continue
+        frame = asset_frame(F, a)
+        y = forward_targets(log_price[a].reindex(frame.index))
+        cols = [f"{a}_{c}" for c in LSTM_FEATURES] + ["VIX_zscore_252d", "regime"]
+        X = frame[cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
+        raw = pd.Series(
+            walk_forward_lstm(X, y.values, scale_target=False), index=frame.index
+        )
+        fixed = forecasts[a]["lstm"]
+        d = pd.DataFrame(
+            {"y": y, "raw": raw, "fixed": fixed, "hm": historical_mean(y)}
+        ).dropna()
+        row = {"Asset": a, "n_oos": len(d)}
+        for name in ("raw", "fixed"):
+            row[f"Disp_{name}"] = float(d[name].std() / d["y"].std())
+            row[f"R2OOS_{name}"] = r2_oos(d[name], d["y"], d["hm"])
+            row[f"IC_{name}"] = float(spearmanr(d[name], d["y"])[0])
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def run(paths=config.PATHS, assets=None, n_jobs=-1):
     F = pd.read_csv(
         paths.processed / "features_monthly.csv", index_col=0, parse_dates=True
@@ -151,4 +178,7 @@ def run(paths=config.PATHS, assets=None, n_jobs=-1):
     table.to_csv(paths.tables / "ic_diagnostics.csv", index=False)
     summary = summarise_variants(table)
     summary.to_csv(paths.tables / "ic_diagnostics_summary.csv")
+    lstm_comparison(F, log_price, load_forecasts(paths), chosen).to_csv(
+        paths.tables / "lstm_repair.csv", index=False
+    )
     return link, table, summary

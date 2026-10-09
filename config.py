@@ -64,8 +64,20 @@ LSTM_SEQ_LEN = 12
 LSTM_REFIT_EVERY = 6
 LSTM_EPOCHS = 40
 LSTM_PATIENCE = 6
+LSTM_HIDDEN = 12
+LSTM_LR = 0.01
+LSTM_L2 = 1e-4
 STACK_WINDOW = 24
 MODELS = ["xgb", "rf", "ridge", "lstm"]
+POOLED = ["pooled_ridge", "pooled_xgb"]
+CANDIDATES = MODELS + POOLED + ["hist_mean"]
+CALIBRATION_WINDOW = 36
+CALIBRATION_MIN = 24
+VIEW_COLUMN = "ensemble_final"
+RAW_VIEW_COLUMN = "ensemble_stacked"
+HOLDOUT_START = "2019-01-01"
+CRISIS_INITIAL_TRAIN = 24
+OBSERVED_PRIOR_FILE = "prior_weights.csv"
 
 MARKET_WEIGHTS = {
     "SPY": 0.42,
@@ -104,7 +116,9 @@ CLASSICAL = [
 ]
 OVERLAYS = ["Regime_60_40", "Regime_Market"]
 NAIVE = "BL_HistMean_Regime"
-DSR_TRIALS = (3, 10)
+RAW = "BL_ML_Raw_Regime"
+ABLATIONS = ["BL_ML_Raw_Regime", "BL_HistMean_Regime"]
+DSR_TRIALS = (5, 10)
 
 DIAG_INITIAL_TRAIN = 72
 DIAG_MODELS = ["xgb", "rf", "ridge"]
@@ -115,5 +129,5 @@ SENSITIVITY_GRID = {
     "stressed_delta_mult": [1.0, 1.4, 1.8, 2.5],
     "stressed_omega_mult": [1.0, 1.5, 2.5, 4.0],
     "max_weight": [0.25, 0.35, 0.5],
-    "prior": ["reference", "equal"],
+    "prior": ["reference", "equal", "inverse_vol"],
 }

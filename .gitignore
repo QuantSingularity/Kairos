@@ -5,3 +5,4 @@ __pycache__/
 data/raw/*.csv
 data/processed/*.csv
 reports/*.docx
+results/alt_window/data/
