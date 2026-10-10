@@ -4,7 +4,7 @@ Kairos is a regime-aware machine learning approach to portfolio allocation. It a
 
 |                   |                                                                             |
 | ----------------- | --------------------------------------------------------------------------- |
-| **Language**      | Python 3.11                                                                 |
+| **Language**      | Python 3.11 or 3.12                                                         |
 | **Universe**      | 9 assets across equities, bonds, credit, gold, commodities and crypto       |
 | **Regime engine** | Walk-forward two-state Gaussian HMM                                         |
 | **Forecasters**   | XGBoost, Random Forest, Ridge, NumPy LSTM, equal and stacked ensembles      |
@@ -13,18 +13,18 @@ Kairos is a regime-aware machine learning approach to portfolio allocation. It a
 
 ## Headline result
 
-The central hypothesis is not supported on this sample. No forecast has out-of-sample skill: the original stacked ensemble has a mean IC of -0.047, significantly negative for SPY and EFA, and a negative R2 against the historical mean on every asset. A repaired LSTM, pooled cross-asset models, a convex stacker and calibration toward the historical mean remove the harm (mean R2 -0.014 against -0.091 for the original stack) but do not produce a positive mean R2 in either the development or the holdout period. The Kairos portfolios do not beat static 60/40 or the market reference, and the same stress rule applied mechanically to 60/40 matches its Sharpe ratio and cuts its drawdown, so the useful part of Kairos is the regime-driven de-risking, not the forecasts. 0 of 44 Black-Litterman parameter settings reach the 60/40 Sharpe ratio, and Black-Litterman adds a significant gain over its own prior portfolio for 0 of 3 priors. When 2008 is included (crisis-inclusive window), the overlay's maximum drawdown is -16.6% against -29.5% for plain 60/40. The specification is frozen as of 2026-07-31 with 0 months realised since, so there is no confirmatory evidence yet.
+The central hypothesis is not supported on this sample. No forecast has out-of-sample skill: the original stacked ensemble has a mean IC of -0.062, significantly negative for SPY and EFA, and a negative R2 against the historical mean on every asset. A repaired LSTM, pooled cross-asset models, a convex stacker and calibration toward the historical mean remove the harm (mean R2 -0.016 against -0.096 for the original stack) but do not produce a positive mean R2 in either the development or the holdout period. The Kairos portfolios do not beat static 60/40 or the market reference, and the same stress rule applied mechanically to 60/40 matches its Sharpe ratio and cuts its drawdown, so the useful part of Kairos is the regime-driven de-risking, not the forecasts. 0 of 44 Black-Litterman parameter settings reach the 60/40 Sharpe ratio, and Black-Litterman adds a significant gain over its own prior portfolio for 0 of 3 priors. When 2008 is included (crisis-inclusive window), the overlay's maximum drawdown is -16.6% against -29.5% for plain 60/40. The specification is frozen as of 2026-07-31 with 0 months realised since, so there is no confirmatory evidence yet.
 
 | Strategy             | Sharpe | Ann. return | Ann. vol | Max drawdown |
 | -------------------- | ------ | ----------- | -------- | ------------ |
-| `BL_ML_Regime`       | 0.84   | 7.7%        | 7.5%     | -16.2%       |
-| `BL_ML_Regime_IC`    | 0.86   | 7.4%        | 7.0%     | -13.2%       |
+| `BL_ML_Regime`       | 0.80   | 7.3%        | 7.5%     | -16.1%       |
+| `BL_ML_Regime_IC`    | 0.86   | 7.4%        | 7.0%     | -13.1%       |
 | `BL_HistMean_Regime` | 0.89   | 8.0%        | 7.4%     | -15.3%       |
 | `Static_60_40`       | 0.98   | 10.4%       | 9.1%     | -20.5%       |
 | `Regime_60_40`       | 0.98   | 8.2%        | 6.9%     | -13.1%       |
 | `Market_Reference`   | 0.93   | 10.4%       | 9.7%     | -21.1%       |
 
-Figures come from the committed run on data through September 2026 and regenerate with `python run.py all`. The full discussion is in `reports/Kairos_Report.md`.
+Figures come from the committed run on data through September 2026 with the package versions in `requirements.txt` (CI tests Python 3.11 and 3.12), and regenerate with `python run.py all`. Forecasts depend on the XGBoost version, so the pinned versions matter. The full discussion is in `reports/Kairos_Report.md`.
 
 ---
 

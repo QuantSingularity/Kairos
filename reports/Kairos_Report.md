@@ -8,11 +8,11 @@ Does a machine learning and deep learning driven approach to portfolio allocatio
 
 ## 2. Summary of Findings
 
-The research hypothesis is not supported. The highest Sharpe ratio among the Kairos portfolios and the classical benchmarks belongs to Static_60_40. The Sharpe difference of BL_ML_Regime to the best classical benchmark (Static_60_40) is -0.14 (95% interval -0.38 to 0.06, p = 0.231), not statistically significant; BL_ML_Regime is significantly better than 1 and significantly worse than 0 of the 5 classical benchmarks (5% level). For BL_ML_Regime_IC the difference is -0.12 (95% interval -0.34 to 0.06, p = 0.234), not statistically significant.
+The research hypothesis is not supported. The highest Sharpe ratio among the Kairos portfolios and the classical benchmarks belongs to Static_60_40. The Sharpe difference of BL_ML_Regime to the best classical benchmark (Static_60_40) is -0.18 (95% interval -0.43 to 0.03, p = 0.134), not statistically significant; BL_ML_Regime is significantly better than 1 and significantly worse than 0 of the 5 classical benchmarks (5% level). For BL_ML_Regime_IC the difference is -0.12 (95% interval -0.34 to 0.05, p = 0.216), not statistically significant.
 
-Regime ablation: the Sharpe difference between BL_ML_Regime and BL_ML_NoRegime is -0.02 (95% interval -0.15 to 0.10, p = 0.791), not statistically significant. In stressed months the regime-aware portfolio's worst-5% average monthly return was -4.29% against -7.08% without regime scaling.
+Regime ablation: the Sharpe difference between BL_ML_Regime and BL_ML_NoRegime is -0.02 (95% interval -0.15 to 0.10, p = 0.767), not statistically significant. In stressed months the regime-aware portfolio's worst-5% average monthly return was -4.25% against -7.04% without regime scaling.
 
-Forecasting: the original stacked ensemble has a mean out-of-sample information coefficient of -0.047. 2 of 9 assets show an IC that is significantly negative at the 5% level (SPY, EFA) and 0 show one that is significantly positive. The original stacked ensemble beats the mean of the single models on 4 of 9 assets.
+Forecasting: the original stacked ensemble has a mean out-of-sample information coefficient of -0.062. 2 of 9 assets show an IC that is significantly negative at the 5% level (SPY, EFA) and 0 show one that is significantly positive. The original stacked ensemble beats the mean of the single models on 2 of 9 assets.
 
 Overlay ablation: the same stress rule applied to static 60/40 gives a Sharpe ratio of 0.98 against 0.98, with a maximum drawdown of -13.1% against -20.5%.
 
@@ -22,15 +22,15 @@ Robustness: 0 of 44 Black-Litterman parameter settings exceed the Sharpe ratio o
 
 Regimes: the walk-forward HMM flags 84% of days inside the documented stress windows and 8% of days inside the calm control windows, against 66% and 7% for the volatility rule.
 
-Forecast repair: the LSTM's dispersion falls from 1.9x to 0.34x realised returns, and the calibrated forecast has a mean R2 of -0.014 against the historical mean. No forecast has a positive mean R2 in either the development or the holdout period.
+Forecast repair: the LSTM's dispersion falls from 1.9x to 0.34x realised returns, and the calibrated forecast has a mean R2 of -0.016 against the historical mean. No forecast has a positive mean R2 in either the development or the holdout period.
 
 Prior: BL_ML_Regime adds a significant Sharpe gain over its own prior portfolio for 0 of 3 priors tested.
 
 Crisis window: Regime_60_40 has a maximum drawdown of -16.6% against -29.5% for static 60/40 when 2008 is included.
 
-The specification is frozen as of 2026-07-31 (hash 94b4989460889eca). 0 realised months have been added since then, so there is no confirmatory evidence yet. Re-run with refreshed data to evaluate months as they arrive.
+The specification is frozen as of 2026-07-31 (hash 5dc8a748344f1fd0). 0 realised months have been added since then, so there is no confirmatory evidence yet. Re-run with refreshed data to evaluate months as they arrive.
 
-Sharpe ranking: Static_60_40 (0.98), Regime_60_40 (0.98), Market_Reference (0.93), Regime_Market (0.91), BL_HistMean_Regime (0.89), BL_ML_NoRegime (0.86), BL_ML_Regime_IC (0.86), BL_ML_Regime (0.84), Inverse_Vol (0.75), Equal_Weight (0.74), BL_ML_Raw_Regime (0.73), MeanVariance_LW (0.40).
+Sharpe ranking: Static_60_40 (0.98), Regime_60_40 (0.98), Market_Reference (0.93), Regime_Market (0.91), BL_HistMean_Regime (0.89), BL_ML_Regime_IC (0.86), BL_ML_NoRegime (0.82), BL_ML_Regime (0.80), Inverse_Vol (0.75), Equal_Weight (0.74), BL_ML_Raw_Regime (0.74), MeanVariance_LW (0.40).
 
 ## 3. Data
 
@@ -102,15 +102,15 @@ Out-of-sample information coefficient by asset and model:
 
 | Asset   | IC_xgb | IC_rf  | IC_ridge | IC_lstm | IC_pooled_ridge | IC_pooled_xgb | IC_ensemble_equal | IC_ensemble_stacked | IC_stack_all | IC_ensemble_final | p_value_stacked |
 | ------- | ------ | ------ | -------- | ------- | --------------- | ------------- | ----------------- | ------------------- | ------------ | ----------------- | --------------- |
-| SPY     | -0.088 | -0.102 | -0.128   | -0.131  | -0.075          | -0.104        | -0.166            | -0.175              | -0.214       | -0.107            | 0.011           |
-| EFA     | -0.134 | -0.163 | -0.215   | -0.071  | -0.075          | -0.074        | -0.193            | -0.142              | -0.155       | -0.219            | 0.039           |
-| TLT     | -0.020 | 0.039  | -0.042   | 0.054   | -0.027          | -0.102        | 0.011             | -0.084              | -0.151       | -0.089            | 0.224           |
-| IEF     | 0.033  | 0.065  | -0.049   | 0.003   | -0.011          | -0.007        | 0.037             | -0.075              | -0.070       | -0.079            | 0.278           |
-| HYG     | 0.181  | 0.103  | -0.051   | 0.015   | -0.010          | 0.068         | 0.113             | 0.070               | 0.113        | 0.035             | 0.362           |
-| GLD     | 0.056  | 0.027  | -0.104   | -0.024  | -0.094          | 0.031         | 0.020             | 0.078               | -0.077       | -0.140            | 0.270           |
-| DBC     | 0.071  | 0.041  | 0.094    | -0.032  | -0.013          | 0.045         | 0.074             | -0.016              | -0.021       | -0.085            | 0.833           |
-| BTC-USD | -0.049 | -0.122 | -0.093   | -0.187  | -0.135          | -0.108        | -0.162            | -0.196              | -0.077       | -0.052            | 0.076           |
-| ETH-USD | 0.031  | 0.014  | -0.145   | 0.212   | -0.100          | -0.070        | 0.107             | 0.120               | -0.009       | -0.198            | 0.429           |
+| SPY     | -0.047 | -0.102 | -0.128   | -0.131  | -0.075          | -0.108        | -0.139            | -0.190              | -0.203       | -0.118            | 0.006           |
+| EFA     | -0.151 | -0.163 | -0.215   | -0.071  | -0.075          | -0.070        | -0.206            | -0.167              | -0.176       | -0.241            | 0.015           |
+| TLT     | -0.036 | 0.039  | -0.042   | 0.054   | -0.027          | -0.081        | 0.000             | -0.102              | -0.148       | -0.067            | 0.138           |
+| IEF     | 0.113  | 0.065  | -0.049   | 0.003   | -0.011          | -0.094        | 0.079             | -0.039              | -0.037       | -0.073            | 0.574           |
+| HYG     | 0.081  | 0.103  | -0.051   | 0.015   | -0.010          | 0.018         | 0.106             | -0.010              | 0.057        | -0.061            | 0.892           |
+| GLD     | 0.041  | 0.027  | -0.104   | -0.024  | -0.094          | -0.028        | 0.019             | 0.067               | -0.075       | -0.133            | 0.346           |
+| DBC     | 0.047  | 0.041  | 0.094    | -0.032  | -0.013          | -0.040        | 0.069             | -0.022              | -0.046       | -0.078            | 0.769           |
+| BTC-USD | -0.110 | -0.122 | -0.093   | -0.187  | -0.135          | -0.122        | -0.180            | -0.206              | -0.105       | -0.047            | 0.062           |
+| ETH-USD | -0.029 | 0.014  | -0.145   | 0.212   | -0.100          | 0.064         | 0.133             | 0.111               | -0.079       | -0.147            | 0.464           |
 
 ![Out-of-sample IC by asset and model](../results/figures/04_model_ic.png)
 
@@ -120,15 +120,15 @@ Hit rate against the always-up baseline and R2 against the historical mean (HitE
 
 | Asset   | BaseRate | UpShare_stacked | Hit_ensemble_stacked | HitEdge_ensemble_stacked | IC_ensemble_stacked | R2OOS_ensemble_stacked | R2OOS_ensemble_final | R2OOS_xgb | R2OOS_rf | R2OOS_ridge | R2OOS_lstm | R2OOS_pooled_ridge | R2OOS_pooled_xgb |
 | ------- | -------- | --------------- | -------------------- | ------------------------ | ------------------- | ---------------------- | -------------------- | --------- | -------- | ----------- | ---------- | ------------------ | ---------------- |
-| SPY     | 0.687    | 0.820           | 0.607                | -0.081                   | -0.175              | -0.143                 | -0.002               | -0.301    | -0.173   | -0.052      | -0.134     | -0.054             | -0.158           |
-| EFA     | 0.616    | 0.607           | 0.398                | -0.218                   | -0.142              | -0.091                 | 0.000                | -0.377    | -0.252   | -0.029      | -0.120     | -0.074             | -0.224           |
-| TLT     | 0.507    | 0.555           | 0.351                | -0.156                   | -0.084              | -0.154                 | -0.006               | -0.187    | -0.078   | -0.070      | -0.052     | -0.068             | -0.060           |
-| IEF     | 0.521    | 0.768           | 0.412                | -0.109                   | -0.075              | -0.068                 | -0.010               | -0.127    | -0.045   | -0.033      | -0.117     | -0.149             | -0.070           |
-| HYG     | 0.665    | 0.850           | 0.607                | -0.058                   | 0.070               | -0.085                 | -0.049               | 0.004     | -0.105   | -0.304      | -0.247     | -0.111             | 0.055            |
-| GLD     | 0.512    | 0.711           | 0.448                | -0.065                   | 0.078               | -0.035                 | -0.017               | -0.141    | -0.068   | -0.003      | -0.059     | -0.039             | -0.050           |
-| DBC     | 0.524    | 0.406           | 0.449                | -0.075                   | -0.016              | -0.147                 | -0.037               | -0.210    | -0.075   | -0.017      | -0.111     | -0.044             | 0.007            |
-| BTC-USD | 0.554    | 0.795           | 0.422                | -0.133                   | -0.196              | -0.081                 | -0.001               | -0.284    | -0.162   | -0.013      | -0.288     | -0.055             | -0.237           |
-| ETH-USD | 0.457    | 0.870           | 0.457                | 0.000                    | 0.120               | -0.013                 | -0.003               | -0.235    | -0.086   | 0.000       | -0.306     | 0.005              | -0.149           |
+| SPY     | 0.687    | 0.815           | 0.602                | -0.085                   | -0.190              | -0.163                 | -0.005               | -0.262    | -0.173   | -0.052      | -0.134     | -0.054             | -0.179           |
+| EFA     | 0.616    | 0.616           | 0.403                | -0.213                   | -0.167              | -0.105                 | -0.010               | -0.342    | -0.252   | -0.029      | -0.120     | -0.074             | -0.196           |
+| TLT     | 0.507    | 0.555           | 0.355                | -0.152                   | -0.102              | -0.154                 | -0.003               | -0.188    | -0.078   | -0.070      | -0.052     | -0.068             | -0.034           |
+| IEF     | 0.521    | 0.763           | 0.445                | -0.076                   | -0.039              | -0.064                 | -0.018               | -0.060    | -0.045   | -0.033      | -0.117     | -0.149             | -0.075           |
+| HYG     | 0.665    | 0.861           | 0.595                | -0.069                   | -0.010              | -0.101                 | -0.043               | -0.095    | -0.105   | -0.304      | -0.247     | -0.111             | 0.030            |
+| GLD     | 0.512    | 0.721           | 0.448                | -0.065                   | 0.067               | -0.031                 | -0.023               | -0.148    | -0.068   | -0.003      | -0.059     | -0.039             | -0.066           |
+| DBC     | 0.524    | 0.406           | 0.449                | -0.075                   | -0.022              | -0.140                 | -0.040               | -0.179    | -0.075   | -0.017      | -0.111     | -0.044             | -0.020           |
+| BTC-USD | 0.554    | 0.759           | 0.398                | -0.157                   | -0.206              | -0.079                 | 0.000                | -0.294    | -0.162   | -0.013      | -0.288     | -0.055             | -0.227           |
+| ETH-USD | 0.457    | 0.870           | 0.413                | -0.043                   | 0.111               | -0.026                 | 0.000                | -0.329    | -0.086   | 0.000       | -0.306     | 0.005              | -0.075           |
 
 ![Forecast skill by asset](../results/figures/11_forecast_skill.png)
 
@@ -167,11 +167,11 @@ Tree and linear models re-fitted under alternative designs, compared on common d
 
 | Variant                 | MeanIC | MeanIC_equities | MeanR2OOS | AssetsPositiveIC | Assets |
 | ----------------------- | ------ | --------------- | --------- | ---------------- | ------ |
-| as_specified            | -0.008 | -0.085          | -0.064    | 3                | 9      |
-| no_regime_features      | -0.034 | -0.097          | -0.070    | 3                | 9      |
-| no_stress_features      | 0.018  | -0.048          | -0.050    | 6                | 9      |
-| longer_initial_window   | -0.008 | -0.085          | -0.064    | 3                | 9      |
-| no_regime_longer_window | -0.034 | -0.097          | -0.070    | 3                | 9      |
+| as_specified            | -0.010 | -0.063          | -0.065    | 3                | 9      |
+| no_regime_features      | -0.020 | -0.093          | -0.066    | 4                | 9      |
+| no_stress_features      | 0.002  | -0.084          | -0.058    | 5                | 9      |
+| longer_initial_window   | -0.010 | -0.063          | -0.065    | 3                | 9      |
+| no_regime_longer_window | -0.020 | -0.093          | -0.066    | 4                | 9      |
 
 ![Mean IC by forecasting design](../results/figures/12_ic_diagnostics.png)
 
@@ -197,16 +197,16 @@ Mean information coefficient and mean R2 against the historical mean, by forecas
 
 | Forecast         | MeanIC (full) | MeanIC (development) | MeanIC (holdout) | MeanR2OOS (full) | MeanR2OOS (development) | MeanR2OOS (holdout) |
 | ---------------- | ------------- | -------------------- | ---------------- | ---------------- | ----------------------- | ------------------- |
-| xgb              | 0.009         | 0.013                | 0.004            | -0.206           | -0.238                  | -0.169              |
+| xgb              | -0.010        | 0.000                | -0.012           | -0.211           | -0.234                  | -0.160              |
 | rf               | -0.011        | -0.006               | -0.023           | -0.116           | -0.128                  | -0.095              |
 | ridge            | -0.081        | -0.073               | -0.138           | -0.058           | -0.202                  | -0.004              |
 | lstm             | -0.018        | 0.011                | -0.051           | -0.159           | -0.119                  | -0.168              |
 | pooled_ridge     | -0.060        | 0.004                | -0.098           | -0.066           | -0.100                  | -0.050              |
-| pooled_xgb       | -0.036        | -0.018               | -0.052           | -0.099           | -0.128                  | -0.052              |
-| ensemble_equal   | -0.018        | 0.014                | -0.050           | -0.061           | -0.069                  | -0.055              |
-| ensemble_stacked | -0.047        | -0.028               | -0.079           | -0.091           | -0.111                  | -0.082              |
-| stack_all        | -0.073        | -0.068               | -0.105           | -0.056           | -0.057                  | -0.061              |
-| ensemble_final   | -0.104        | -0.123               | -0.143           | -0.014           | -0.019                  | -0.012              |
+| pooled_xgb       | -0.051        | -0.055               | -0.059           | -0.094           | -0.147                  | -0.038              |
+| ensemble_equal   | -0.013        | 0.017                | -0.033           | -0.064           | -0.067                  | -0.054              |
+| ensemble_stacked | -0.062        | -0.036               | -0.100           | -0.096           | -0.106                  | -0.093              |
+| stack_all        | -0.090        | -0.082               | -0.113           | -0.054           | -0.066                  | -0.053              |
+| ensemble_final   | -0.107        | -0.145               | -0.137           | -0.016           | -0.025                  | -0.014              |
 
 ![R2 against the historical mean by forecast and period](../results/figures/15_forecast_repair.png)
 
@@ -216,24 +216,24 @@ Average stacking weight of each candidate in the final forecast:
 
 | Asset   | xgb  | rf   | ridge | lstm | pooled_ridge | pooled_xgb | hist_mean |
 | ------- | ---- | ---- | ----- | ---- | ------------ | ---------- | --------- |
-| SPY     | 0.06 | 0.04 | 0.15  | 0.11 | 0.22         | 0.12       | 0.30      |
-| EFA     | 0.12 | 0.00 | 0.00  | 0.19 | 0.28         | 0.11       | 0.30      |
-| TLT     | 0.12 | 0.11 | 0.03  | 0.21 | 0.21         | 0.07       | 0.24      |
-| IEF     | 0.15 | 0.14 | 0.11  | 0.13 | 0.14         | 0.20       | 0.12      |
-| HYG     | 0.26 | 0.07 | 0.04  | 0.08 | 0.02         | 0.36       | 0.18      |
-| GLD     | 0.16 | 0.13 | 0.01  | 0.17 | 0.15         | 0.20       | 0.19      |
-| DBC     | 0.07 | 0.02 | 0.10  | 0.18 | 0.10         | 0.29       | 0.23      |
-| BTC-USD | 0.12 | 0.01 | 0.00  | 0.01 | 0.12         | 0.12       | 0.61      |
-| ETH-USD | 0.21 | 0.01 | 0.00  | 0.37 | 0.26         | 0.06       | 0.08      |
+| SPY     | 0.16 | 0.02 | 0.11  | 0.09 | 0.21         | 0.10       | 0.31      |
+| EFA     | 0.08 | 0.01 | 0.01  | 0.23 | 0.26         | 0.16       | 0.25      |
+| TLT     | 0.11 | 0.11 | 0.03  | 0.20 | 0.20         | 0.16       | 0.19      |
+| IEF     | 0.22 | 0.19 | 0.10  | 0.08 | 0.13         | 0.13       | 0.14      |
+| HYG     | 0.10 | 0.20 | 0.04  | 0.08 | 0.02         | 0.35       | 0.20      |
+| GLD     | 0.13 | 0.13 | 0.03  | 0.18 | 0.15         | 0.18       | 0.21      |
+| DBC     | 0.11 | 0.01 | 0.16  | 0.19 | 0.15         | 0.12       | 0.26      |
+| BTC-USD | 0.03 | 0.05 | 0.00  | 0.00 | 0.20         | 0.00       | 0.72      |
+| ETH-USD | 0.16 | 0.01 | 0.00  | 0.37 | 0.37         | 0.05       | 0.04      |
 
 ### 5.5 Portfolio performance
 
 | index              | AnnReturn | AnnVol | Sharpe | Sortino | MaxDrawdown | Calmar | CVaR5  | AnnTurnover |
 | ------------------ | --------- | ------ | ------ | ------- | ----------- | ------ | ------ | ----------- |
-| BL_ML_Regime       | 7.65%     | 7.49%  | 0.844  | 1.356   | -16.23%     | 0.471  | -4.04% | 2.36        |
-| BL_ML_Regime_IC    | 7.38%     | 7.00%  | 0.861  | 1.371   | -13.25%     | 0.557  | -3.75% | 1.41        |
-| BL_ML_NoRegime     | 9.41%     | 9.41%  | 0.862  | 1.391   | -22.85%     | 0.412  | -5.54% | 2.19        |
-| BL_ML_Raw_Regime   | 7.08%     | 8.02%  | 0.725  | 1.119   | -16.71%     | 0.424  | -4.83% | 4.00        |
+| BL_ML_Regime       | 7.35%     | 7.50%  | 0.804  | 1.280   | -16.14%     | 0.455  | -4.10% | 2.12        |
+| BL_ML_Regime_IC    | 7.37%     | 7.00%  | 0.859  | 1.363   | -13.12%     | 0.562  | -3.75% | 1.32        |
+| BL_ML_NoRegime     | 9.01%     | 9.38%  | 0.824  | 1.329   | -22.69%     | 0.397  | -5.50% | 1.86        |
+| BL_ML_Raw_Regime   | 7.13%     | 7.91%  | 0.741  | 1.139   | -17.16%     | 0.416  | -4.87% | 4.05        |
 | BL_HistMean_Regime | 7.96%     | 7.38%  | 0.894  | 1.458   | -15.31%     | 0.520  | -3.89% | 1.34        |
 | Market_Reference   | 10.39%    | 9.74%  | 0.927  | 1.519   | -21.06%     | 0.494  | -5.56% | 0.35        |
 | Equal_Weight       | 9.49%     | 11.25% | 0.744  | 1.300   | -23.59%     | 0.402  | -5.89% | 0.54        |
@@ -259,32 +259,32 @@ _Portfolio weights_
 
 | strategy        | benchmark          | diff   | ci_low | ci_high | p_value |
 | --------------- | ------------------ | ------ | ------ | ------- | ------- |
-| BL_ML_Regime    | BL_ML_Regime_IC    | -0.016 | -0.135 | 0.096   | 0.789   |
-| BL_ML_Regime    | BL_ML_NoRegime     | -0.018 | -0.153 | 0.101   | 0.791   |
-| BL_ML_Regime    | BL_ML_Raw_Regime   | 0.119  | -0.023 | 0.272   | 0.112   |
-| BL_ML_Regime    | BL_HistMean_Regime | -0.049 | -0.112 | 0.012   | 0.118   |
-| BL_ML_Regime    | Market_Reference   | -0.082 | -0.253 | 0.068   | 0.325   |
-| BL_ML_Regime    | Equal_Weight       | 0.101  | -0.110 | 0.338   | 0.362   |
-| BL_ML_Regime    | Static_60_40       | -0.136 | -0.378 | 0.060   | 0.231   |
-| BL_ML_Regime    | Inverse_Vol        | 0.096  | -0.144 | 0.296   | 0.382   |
-| BL_ML_Regime    | MeanVariance_LW    | 0.442  | 0.142  | 0.751   | 0.005   |
-| BL_ML_Regime    | Regime_60_40       | -0.135 | -0.374 | 0.074   | 0.238   |
-| BL_ML_Regime    | Regime_Market      | -0.066 | -0.197 | 0.062   | 0.334   |
-| BL_ML_Regime_IC | BL_ML_Regime       | 0.016  | -0.096 | 0.135   | 0.789   |
-| BL_ML_Regime_IC | BL_ML_NoRegime     | -0.001 | -0.177 | 0.158   | 0.988   |
-| BL_ML_Regime_IC | BL_ML_Raw_Regime   | 0.135  | -0.071 | 0.337   | 0.196   |
-| BL_ML_Regime_IC | BL_HistMean_Regime | -0.033 | -0.147 | 0.084   | 0.583   |
-| BL_ML_Regime_IC | Market_Reference   | -0.066 | -0.200 | 0.052   | 0.309   |
-| BL_ML_Regime_IC | Equal_Weight       | 0.117  | -0.130 | 0.403   | 0.381   |
-| BL_ML_Regime_IC | Static_60_40       | -0.120 | -0.340 | 0.055   | 0.234   |
-| BL_ML_Regime_IC | Inverse_Vol        | 0.112  | -0.139 | 0.338   | 0.354   |
-| BL_ML_Regime_IC | MeanVariance_LW    | 0.458  | 0.099  | 0.822   | 0.014   |
-| BL_ML_Regime_IC | Regime_60_40       | -0.119 | -0.312 | 0.047   | 0.194   |
-| BL_ML_Regime_IC | Regime_Market      | -0.050 | -0.096 | -0.012  | 0.021   |
+| BL_ML_Regime    | BL_ML_Regime_IC    | -0.055 | -0.179 | 0.066   | 0.385   |
+| BL_ML_Regime    | BL_ML_NoRegime     | -0.020 | -0.149 | 0.099   | 0.767   |
+| BL_ML_Regime    | BL_ML_Raw_Regime   | 0.063  | -0.101 | 0.223   | 0.451   |
+| BL_ML_Regime    | BL_HistMean_Regime | -0.089 | -0.150 | -0.040  | 0.003   |
+| BL_ML_Regime    | Market_Reference   | -0.122 | -0.310 | 0.040   | 0.172   |
+| BL_ML_Regime    | Equal_Weight       | 0.061  | -0.155 | 0.301   | 0.595   |
+| BL_ML_Regime    | Static_60_40       | -0.176 | -0.427 | 0.030   | 0.134   |
+| BL_ML_Regime    | Inverse_Vol        | 0.056  | -0.199 | 0.270   | 0.634   |
+| BL_ML_Regime    | MeanVariance_LW    | 0.402  | 0.102  | 0.711   | 0.012   |
+| BL_ML_Regime    | Regime_60_40       | -0.175 | -0.413 | 0.031   | 0.122   |
+| BL_ML_Regime    | Regime_Market      | -0.106 | -0.243 | 0.026   | 0.129   |
+| BL_ML_Regime_IC | BL_ML_Regime       | 0.055  | -0.066 | 0.179   | 0.385   |
+| BL_ML_Regime_IC | BL_ML_NoRegime     | 0.035  | -0.130 | 0.192   | 0.678   |
+| BL_ML_Regime_IC | BL_ML_Raw_Regime   | 0.118  | -0.085 | 0.310   | 0.245   |
+| BL_ML_Regime_IC | BL_HistMean_Regime | -0.035 | -0.141 | 0.075   | 0.540   |
+| BL_ML_Regime_IC | Market_Reference   | -0.068 | -0.197 | 0.046   | 0.290   |
+| BL_ML_Regime_IC | Equal_Weight       | 0.115  | -0.131 | 0.402   | 0.388   |
+| BL_ML_Regime_IC | Static_60_40       | -0.121 | -0.338 | 0.049   | 0.216   |
+| BL_ML_Regime_IC | Inverse_Vol        | 0.110  | -0.144 | 0.336   | 0.365   |
+| BL_ML_Regime_IC | MeanVariance_LW    | 0.457  | 0.101  | 0.814   | 0.013   |
+| BL_ML_Regime_IC | Regime_60_40       | -0.121 | -0.307 | 0.039   | 0.173   |
+| BL_ML_Regime_IC | Regime_Market      | -0.051 | -0.084 | -0.025  | 0.002   |
 | Regime_60_40    | Static_60_40       | -0.001 | -0.137 | 0.125   | 0.994   |
 | Regime_Market   | Market_Reference   | -0.017 | -0.143 | 0.098   | 0.795   |
-| Regime_60_40    | BL_ML_Regime       | 0.135  | -0.074 | 0.374   | 0.238   |
-| Regime_Market   | BL_ML_Regime       | 0.066  | -0.062 | 0.197   | 0.334   |
+| Regime_60_40    | BL_ML_Regime       | 0.175  | -0.031 | 0.413   | 0.122   |
+| Regime_Market   | BL_ML_Regime       | 0.106  | -0.026 | 0.243   | 0.129   |
 
 ![Sharpe difference with 95% bootstrap interval](../results/figures/09_sharpe_significance.png)
 
@@ -294,20 +294,20 @@ Deflated Sharpe ratio of the Kairos variants (DSR is the probability that the tr
 
 | strategy        | Sharpe | BenchmarkSharpe | DSR   | Trials |
 | --------------- | ------ | --------------- | ----- | ------ |
-| BL_ML_Regime    | 0.844  | 0.078           | 0.999 | 5      |
-| BL_ML_Regime    | 0.844  | 0.103           | 0.998 | 10     |
-| BL_ML_Regime_IC | 0.861  | 0.078           | 0.999 | 5      |
-| BL_ML_Regime_IC | 0.861  | 0.103           | 0.999 | 10     |
-| BL_ML_NoRegime  | 0.862  | 0.078           | 0.999 | 5      |
-| BL_ML_NoRegime  | 0.862  | 0.103           | 0.999 | 10     |
+| BL_ML_Regime    | 0.804  | 0.069           | 0.998 | 5      |
+| BL_ML_Regime    | 0.804  | 0.091           | 0.998 | 10     |
+| BL_ML_Regime_IC | 0.859  | 0.069           | 0.999 | 5      |
+| BL_ML_Regime_IC | 0.859  | 0.091           | 0.999 | 10     |
+| BL_ML_NoRegime  | 0.824  | 0.069           | 0.999 | 5      |
+| BL_ML_NoRegime  | 0.824  | 0.091           | 0.998 | 10     |
 
 ### 5.7 Overlay ablation
 
 | index              | AnnReturn | AnnVol | Sharpe | Sortino | MaxDrawdown | Calmar | CVaR5  | AnnTurnover |
 | ------------------ | --------- | ------ | ------ | ------- | ----------- | ------ | ------ | ----------- |
-| BL_ML_Regime       | 7.65%     | 7.49%  | 0.844  | 1.356   | -16.23%     | 0.471  | -4.04% | 2.36        |
-| BL_ML_Regime_IC    | 7.38%     | 7.00%  | 0.861  | 1.371   | -13.25%     | 0.557  | -3.75% | 1.41        |
-| BL_ML_Raw_Regime   | 7.08%     | 8.02%  | 0.725  | 1.119   | -16.71%     | 0.424  | -4.83% | 4.00        |
+| BL_ML_Regime       | 7.35%     | 7.50%  | 0.804  | 1.280   | -16.14%     | 0.455  | -4.10% | 2.12        |
+| BL_ML_Regime_IC    | 7.37%     | 7.00%  | 0.859  | 1.363   | -13.12%     | 0.562  | -3.75% | 1.32        |
+| BL_ML_Raw_Regime   | 7.13%     | 7.91%  | 0.741  | 1.139   | -17.16%     | 0.416  | -4.87% | 4.05        |
 | BL_HistMean_Regime | 7.96%     | 7.38%  | 0.894  | 1.458   | -15.31%     | 0.520  | -3.89% | 1.34        |
 | Regime_60_40       | 8.23%     | 6.95%  | 0.980  | 1.552   | -13.15%     | 0.626  | -3.86% | 1.19        |
 | Static_60_40       | 10.37%    | 9.12%  | 0.980  | 1.596   | -20.52%     | 0.505  | -5.19% | 0.27        |
@@ -322,18 +322,18 @@ _Forecast-driven portfolios against mechanical overlays_
 
 | index                         | AnnReturn | Sharpe | MaxDrawdown | CVaR5  | Months |
 | ----------------------------- | --------- | ------ | ----------- | ------ | ------ |
-| BL_ML_Regime / All            | 7.65%     | 0.844  | -16.23%     | -4.04% | 211    |
-| BL_ML_Regime / Calm           | 7.17%     | 0.758  | -11.62%     | -3.76% | 142    |
-| BL_ML_Regime / Stressed       | 8.65%     | 1.020  | -11.24%     | -4.29% | 69     |
-| BL_ML_Regime_IC / All         | 7.38%     | 0.861  | -13.25%     | -3.75% | 211    |
-| BL_ML_Regime_IC / Calm        | 6.66%     | 0.739  | -10.24%     | -3.57% | 142    |
-| BL_ML_Regime_IC / Stressed    | 8.88%     | 1.108  | -9.74%      | -3.90% | 69     |
-| BL_ML_NoRegime / All          | 9.41%     | 0.862  | -22.85%     | -5.54% | 211    |
-| BL_ML_NoRegime / Calm         | 7.22%     | 0.764  | -11.54%     | -3.75% | 142    |
-| BL_ML_NoRegime / Stressed     | 14.07%    | 1.049  | -19.03%     | -7.08% | 69     |
-| BL_ML_Raw_Regime / All        | 7.08%     | 0.725  | -16.71%     | -4.83% | 211    |
-| BL_ML_Raw_Regime / Calm       | 6.89%     | 0.652  | -11.22%     | -4.78% | 142    |
-| BL_ML_Raw_Regime / Stressed   | 7.46%     | 0.905  | -11.22%     | -4.59% | 69     |
+| BL_ML_Regime / All            | 7.35%     | 0.804  | -16.14%     | -4.10% | 211    |
+| BL_ML_Regime / Calm           | 6.71%     | 0.696  | -11.67%     | -3.86% | 142    |
+| BL_ML_Regime / Stressed       | 8.67%     | 1.031  | -11.17%     | -4.25% | 69     |
+| BL_ML_Regime_IC / All         | 7.37%     | 0.859  | -13.12%     | -3.75% | 211    |
+| BL_ML_Regime_IC / Calm        | 6.64%     | 0.736  | -10.18%     | -3.61% | 142    |
+| BL_ML_Regime_IC / Stressed    | 8.88%     | 1.111  | -9.71%      | -3.89% | 69     |
+| BL_ML_NoRegime / All          | 9.01%     | 0.824  | -22.69%     | -5.50% | 211    |
+| BL_ML_NoRegime / Calm         | 6.76%     | 0.702  | -11.59%     | -3.86% | 142    |
+| BL_ML_NoRegime / Stressed     | 13.79%    | 1.038  | -19.05%     | -7.04% | 69     |
+| BL_ML_Raw_Regime / All        | 7.13%     | 0.741  | -17.16%     | -4.87% | 211    |
+| BL_ML_Raw_Regime / Calm       | 7.11%     | 0.689  | -11.30%     | -4.78% | 142    |
+| BL_ML_Raw_Regime / Stressed   | 7.17%     | 0.865  | -11.48%     | -4.66% | 69     |
 | BL_HistMean_Regime / All      | 7.96%     | 0.894  | -15.31%     | -3.89% | 211    |
 | BL_HistMean_Regime / Calm     | 7.32%     | 0.786  | -10.91%     | -3.65% | 142    |
 | BL_HistMean_Regime / Stressed | 9.29%     | 1.115  | -10.92%     | -4.06% | 69     |
@@ -369,14 +369,14 @@ Performance before and from 2019-01-01:
 
 | index                            | AnnReturn | AnnVol | Sharpe | MaxDrawdown | Months |
 | -------------------------------- | --------- | ------ | ------ | ----------- | ------ |
-| BL_ML_Regime / development       | 6.24%     | 6.31%  | 0.933  | -7.54%      | 120    |
-| BL_ML_Regime / holdout           | 9.55%     | 8.81%  | 0.778  | -16.23%     | 91     |
-| BL_ML_Regime_IC / development    | 5.99%     | 6.06%  | 0.931  | -7.34%      | 120    |
-| BL_ML_Regime_IC / holdout        | 9.23%     | 8.09%  | 0.804  | -13.25%     | 91     |
-| BL_ML_NoRegime / development     | 7.66%     | 7.63%  | 0.958  | -8.25%      | 120    |
-| BL_ML_NoRegime / holdout         | 11.77%    | 11.34% | 0.804  | -22.85%     | 91     |
-| BL_ML_Raw_Regime / development   | 6.02%     | 6.75%  | 0.846  | -7.86%      | 120    |
-| BL_ML_Raw_Regime / holdout       | 8.48%     | 9.46%  | 0.627  | -16.71%     | 91     |
+| BL_ML_Regime / development       | 5.97%     | 6.37%  | 0.884  | -8.90%      | 120    |
+| BL_ML_Regime / holdout           | 9.18%     | 8.77%  | 0.743  | -16.14%     | 91     |
+| BL_ML_Regime_IC / development    | 6.03%     | 6.05%  | 0.938  | -7.15%      | 120    |
+| BL_ML_Regime_IC / holdout        | 9.16%     | 8.10%  | 0.794  | -13.12%     | 91     |
+| BL_ML_NoRegime / development     | 7.35%     | 7.56%  | 0.928  | -8.32%      | 120    |
+| BL_ML_NoRegime / holdout         | 11.23%    | 11.35% | 0.761  | -22.69%     | 91     |
+| BL_ML_Raw_Regime / development   | 6.03%     | 6.71%  | 0.851  | -7.83%      | 120    |
+| BL_ML_Raw_Regime / holdout       | 8.61%     | 9.28%  | 0.650  | -17.16%     | 91     |
 | BL_HistMean_Regime / development | 6.66%     | 6.18%  | 1.015  | -6.57%      | 120    |
 | BL_HistMean_Regime / holdout     | 9.70%     | 8.73%  | 0.800  | -15.31%     | 91     |
 | Market_Reference / development   | 9.36%     | 8.39%  | 1.066  | -7.06%      | 120    |
@@ -398,25 +398,25 @@ Paired Sharpe comparisons within each period:
 
 | period      | strategy     | benchmark          | diff   | ci_low | ci_high | p_value |
 | ----------- | ------------ | ------------------ | ------ | ------ | ------- | ------- |
-| development | BL_ML_Regime | Static_60_40       | -0.369 | -0.769 | -0.051  | 0.049   |
-| development | BL_ML_Regime | Regime_60_40       | -0.378 | -0.755 | -0.058  | 0.036   |
-| development | BL_ML_Regime | BL_HistMean_Regime | -0.083 | -0.205 | 0.033   | 0.154   |
-| development | BL_ML_Regime | BL_ML_Raw_Regime   | 0.087  | -0.121 | 0.289   | 0.423   |
+| development | BL_ML_Regime | Static_60_40       | -0.417 | -0.808 | -0.100  | 0.026   |
+| development | BL_ML_Regime | Regime_60_40       | -0.426 | -0.783 | -0.108  | 0.013   |
+| development | BL_ML_Regime | BL_HistMean_Regime | -0.131 | -0.238 | -0.038  | 0.012   |
+| development | BL_ML_Regime | BL_ML_Raw_Regime   | 0.033  | -0.194 | 0.246   | 0.770   |
 | development | Regime_60_40 | Static_60_40       | 0.009  | -0.157 | 0.167   | 0.920   |
-| holdout     | BL_ML_Regime | Static_60_40       | 0.069  | -0.209 | 0.291   | 0.570   |
-| holdout     | BL_ML_Regime | Regime_60_40       | 0.078  | -0.148 | 0.314   | 0.504   |
-| holdout     | BL_ML_Regime | BL_HistMean_Regime | -0.022 | -0.069 | 0.036   | 0.406   |
-| holdout     | BL_ML_Regime | BL_ML_Raw_Regime   | 0.152  | -0.046 | 0.389   | 0.163   |
+| holdout     | BL_ML_Regime | Static_60_40       | 0.034  | -0.246 | 0.262   | 0.784   |
+| holdout     | BL_ML_Regime | Regime_60_40       | 0.043  | -0.187 | 0.272   | 0.722   |
+| holdout     | BL_ML_Regime | BL_HistMean_Regime | -0.058 | -0.099 | -0.017  | 0.007   |
+| holdout     | BL_ML_Regime | BL_ML_Raw_Regime   | 0.093  | -0.140 | 0.328   | 0.428   |
 | holdout     | Regime_60_40 | Static_60_40       | -0.009 | -0.206 | 0.153   | 0.924   |
 
 Crisis-inclusive window (out-of-sample forecasts start before 2008):
 
 | index              | Sharpe_main | Sharpe_crisis_window | MaxDD_main | MaxDD_crisis_window | Months_main | Months_crisis_window |
 | ------------------ | ----------- | -------------------- | ---------- | ------------------- | ----------- | -------------------- |
-| BL_ML_Regime       | 0.844       | 0.714                | -0.162     | -0.172              | 211         | 235                  |
-| BL_ML_Regime_IC    | 0.861       | 0.705                | -0.132     | -0.169              | 211         | 235                  |
-| BL_ML_NoRegime     | 0.862       | 0.684                | -0.228     | -0.264              | 211         | 235                  |
-| BL_ML_Raw_Regime   | 0.725       | 0.755                | -0.167     | -0.185              | 211         | 235                  |
+| BL_ML_Regime       | 0.804       | 0.691                | -0.161     | -0.172              | 211         | 235                  |
+| BL_ML_Regime_IC    | 0.859       | 0.700                | -0.131     | -0.169              | 211         | 235                  |
+| BL_ML_NoRegime     | 0.824       | 0.657                | -0.227     | -0.264              | 211         | 235                  |
+| BL_ML_Raw_Regime   | 0.741       | 0.769                | -0.172     | -0.185              | 211         | 235                  |
 | BL_HistMean_Regime | 0.894       | 0.759                | -0.153     | -0.172              | 211         | 235                  |
 | Market_Reference   | 0.927       | 0.689                | -0.211     | -0.314              | 211         | 235                  |
 | Equal_Weight       | 0.744       | 0.696                | -0.236     | -0.287              | 211         | 235                  |
@@ -428,8 +428,8 @@ Crisis-inclusive window (out-of-sample forecasts start before 2008):
 
 | strategy     | benchmark    | diff   | ci_low | ci_high | p_value |
 | ------------ | ------------ | ------ | ------ | ------- | ------- |
-| BL_ML_Regime | Static_60_40 | -0.004 | -0.261 | 0.218   | 0.973   |
-| BL_ML_Regime | Regime_60_40 | -0.060 | -0.283 | 0.136   | 0.569   |
+| BL_ML_Regime | Static_60_40 | -0.027 | -0.290 | 0.195   | 0.817   |
+| BL_ML_Regime | Regime_60_40 | -0.083 | -0.307 | 0.113   | 0.428   |
 | Regime_60_40 | Static_60_40 | 0.056  | -0.094 | 0.187   | 0.433   |
 
 ![Sharpe ratio by evaluation window](../results/figures/16_window_robustness.png)
@@ -442,10 +442,10 @@ Sharpe ratio by transaction cost assumption:
 
 | index              | 0bps  | 10bps | 25bps | 50bps |
 | ------------------ | ----- | ----- | ----- | ----- |
-| BL_ML_Regime       | 0.877 | 0.844 | 0.795 | 0.713 |
-| BL_ML_Regime_IC    | 0.882 | 0.861 | 0.829 | 0.777 |
-| BL_ML_NoRegime     | 0.887 | 0.862 | 0.825 | 0.764 |
-| BL_ML_Raw_Regime   | 0.775 | 0.725 | 0.650 | 0.525 |
+| BL_ML_Regime       | 0.834 | 0.804 | 0.761 | 0.688 |
+| BL_ML_Regime_IC    | 0.879 | 0.859 | 0.829 | 0.780 |
+| BL_ML_NoRegime     | 0.845 | 0.824 | 0.793 | 0.741 |
+| BL_ML_Raw_Regime   | 0.792 | 0.741 | 0.664 | 0.536 |
 | BL_HistMean_Regime | 0.913 | 0.894 | 0.866 | 0.818 |
 | Market_Reference   | 0.931 | 0.927 | 0.921 | 0.911 |
 | Equal_Weight       | 0.749 | 0.744 | 0.736 | 0.724 |
@@ -459,10 +459,10 @@ Sharpe ratio by half of the sample:
 
 | index              | FirstHalfSharpe | SecondHalfSharpe |
 | ------------------ | --------------- | ---------------- |
-| BL_ML_Regime       | 1.107           | 0.674            |
-| BL_ML_Regime_IC    | 1.079           | 0.707            |
-| BL_ML_NoRegime     | 1.129           | 0.703            |
-| BL_ML_Raw_Regime   | 1.046           | 0.519            |
+| BL_ML_Regime       | 1.061           | 0.634            |
+| BL_ML_Regime_IC    | 1.094           | 0.694            |
+| BL_ML_NoRegime     | 1.095           | 0.663            |
+| BL_ML_Raw_Regime   | 1.059           | 0.534            |
 | BL_HistMean_Regime | 1.180           | 0.711            |
 | Market_Reference   | 1.200           | 0.731            |
 | Equal_Weight       | 0.856           | 0.733            |
@@ -476,50 +476,50 @@ Black-Litterman parameter sensitivity, one parameter changed at a time:
 
 | Parameter           | Value       | Default | Variant         | Sharpe | MaxDrawdown | AnnTurnover | AvgCash |
 | ------------------- | ----------- | ------- | --------------- | ------ | ----------- | ----------- | ------- |
-| tau                 | 0.025       |         | BL_ML_Regime    | 0.869  | -14.93%     | 1.86        | 15.6%   |
-| tau                 | 0.025       |         | BL_ML_Regime_IC | 0.865  | -13.33%     | 1.30        | 17.2%   |
-| tau                 | 0.05        | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| tau                 | 0.05        | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| tau                 | 0.1         |         | BL_ML_Regime    | 0.797  | -17.53%     | 2.99        | 16.5%   |
-| tau                 | 0.1         |         | BL_ML_Regime_IC | 0.850  | -13.09%     | 1.58        | 20.1%   |
-| tau                 | 0.2         |         | BL_ML_Regime    | 0.707  | -18.86%     | 3.60        | 16.1%   |
-| tau                 | 0.2         |         | BL_ML_Regime_IC | 0.860  | -12.83%     | 1.78        | 23.0%   |
-| base_delta          | 1.5         |         | BL_ML_Regime    | 0.781  | -18.02%     | 3.01        | 13.1%   |
-| base_delta          | 1.5         |         | BL_ML_Regime_IC | 0.846  | -13.57%     | 1.59        | 17.2%   |
-| base_delta          | 2.5         | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| base_delta          | 2.5         | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| base_delta          | 4.0         |         | BL_ML_Regime    | 0.884  | -14.82%     | 1.92        | 18.1%   |
-| base_delta          | 4.0         |         | BL_ML_Regime_IC | 0.869  | -13.07%     | 1.30        | 19.0%   |
-| base_delta          | 6.0         |         | BL_ML_Regime    | 0.900  | -14.01%     | 1.65        | 19.4%   |
-| base_delta          | 6.0         |         | BL_ML_Regime_IC | 0.872  | -12.96%     | 1.24        | 19.6%   |
-| stressed_delta_mult | 1.0         |         | BL_ML_Regime    | 0.873  | -22.17%     | 2.03        | 4.4%    |
-| stressed_delta_mult | 1.0         |         | BL_ML_Regime_IC | 0.874  | -20.39%     | 0.63        | 5.3%    |
-| stressed_delta_mult | 1.4         |         | BL_ML_Regime    | 0.860  | -18.41%     | 2.16        | 10.7%   |
-| stressed_delta_mult | 1.4         |         | BL_ML_Regime_IC | 0.880  | -15.50%     | 1.08        | 13.2%   |
-| stressed_delta_mult | 1.8         | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| stressed_delta_mult | 1.8         | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| stressed_delta_mult | 2.5         |         | BL_ML_Regime    | 0.810  | -14.11%     | 2.60        | 21.7%   |
-| stressed_delta_mult | 2.5         |         | BL_ML_Regime_IC | 0.820  | -11.51%     | 1.72        | 23.1%   |
-| stressed_omega_mult | 1.0         |         | BL_ML_Regime    | 0.816  | -18.17%     | 2.49        | 13.0%   |
-| stressed_omega_mult | 1.0         |         | BL_ML_Regime_IC | 0.853  | -13.56%     | 1.43        | 17.8%   |
-| stressed_omega_mult | 1.5         |         | BL_ML_Regime    | 0.831  | -17.19%     | 2.39        | 14.7%   |
-| stressed_omega_mult | 1.5         |         | BL_ML_Regime_IC | 0.857  | -13.39%     | 1.42        | 18.0%   |
-| stressed_omega_mult | 2.5         | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| stressed_omega_mult | 2.5         | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| stressed_omega_mult | 4.0         |         | BL_ML_Regime    | 0.853  | -15.66%     | 2.36        | 17.1%   |
-| stressed_omega_mult | 4.0         |         | BL_ML_Regime_IC | 0.863  | -13.17%     | 1.40        | 18.3%   |
-| max_weight          | 0.25        |         | BL_ML_Regime    | 0.790  | -15.98%     | 2.12        | 16.7%   |
-| max_weight          | 0.25        |         | BL_ML_Regime_IC | 0.792  | -12.98%     | 1.33        | 20.3%   |
-| max_weight          | 0.35        | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| max_weight          | 0.35        | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| max_weight          | 0.5         |         | BL_ML_Regime    | 0.858  | -16.30%     | 2.51        | 16.1%   |
-| max_weight          | 0.5         |         | BL_ML_Regime_IC | 0.900  | -13.40%     | 1.45        | 17.0%   |
-| prior               | reference   | yes     | BL_ML_Regime    | 0.844  | -16.23%     | 2.36        | 16.2%   |
-| prior               | reference   | yes     | BL_ML_Regime_IC | 0.861  | -13.25%     | 1.41        | 18.2%   |
-| prior               | equal       |         | BL_ML_Regime    | 0.615  | -17.78%     | 2.55        | 17.4%   |
-| prior               | equal       |         | BL_ML_Regime_IC | 0.654  | -15.39%     | 1.55        | 17.2%   |
-| prior               | inverse_vol |         | BL_ML_Regime    | 0.631  | -14.42%     | 2.38        | 16.1%   |
-| prior               | inverse_vol |         | BL_ML_Regime_IC | 0.693  | -11.19%     | 1.46        | 17.1%   |
+| tau                 | 0.025       |         | BL_ML_Regime    | 0.840  | -14.86%     | 1.71        | 15.6%   |
+| tau                 | 0.025       |         | BL_ML_Regime_IC | 0.859  | -13.26%     | 1.26        | 17.4%   |
+| tau                 | 0.05        | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| tau                 | 0.05        | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| tau                 | 0.1         |         | BL_ML_Regime    | 0.743  | -17.62%     | 2.66        | 16.5%   |
+| tau                 | 0.1         |         | BL_ML_Regime_IC | 0.861  | -12.84%     | 1.44        | 20.2%   |
+| tau                 | 0.2         |         | BL_ML_Regime    | 0.653  | -19.04%     | 3.22        | 16.2%   |
+| tau                 | 0.2         |         | BL_ML_Regime_IC | 0.852  | -12.36%     | 1.60        | 23.4%   |
+| base_delta          | 1.5         |         | BL_ML_Regime    | 0.736  | -18.09%     | 2.73        | 13.0%   |
+| base_delta          | 1.5         |         | BL_ML_Regime_IC | 0.855  | -13.34%     | 1.45        | 17.2%   |
+| base_delta          | 2.5         | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| base_delta          | 2.5         | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| base_delta          | 4.0         |         | BL_ML_Regime    | 0.849  | -14.73%     | 1.75        | 18.1%   |
+| base_delta          | 4.0         |         | BL_ML_Regime_IC | 0.863  | -12.99%     | 1.25        | 19.2%   |
+| base_delta          | 6.0         |         | BL_ML_Regime    | 0.875  | -13.94%     | 1.52        | 19.3%   |
+| base_delta          | 6.0         |         | BL_ML_Regime_IC | 0.867  | -12.91%     | 1.21        | 19.6%   |
+| stressed_delta_mult | 1.0         |         | BL_ML_Regime    | 0.839  | -22.05%     | 1.73        | 4.6%    |
+| stressed_delta_mult | 1.0         |         | BL_ML_Regime_IC | 0.874  | -20.35%     | 0.52        | 5.4%    |
+| stressed_delta_mult | 1.4         |         | BL_ML_Regime    | 0.824  | -18.26%     | 1.90        | 10.7%   |
+| stressed_delta_mult | 1.4         |         | BL_ML_Regime_IC | 0.879  | -15.46%     | 1.00        | 13.4%   |
+| stressed_delta_mult | 1.8         | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| stressed_delta_mult | 1.8         | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| stressed_delta_mult | 2.5         |         | BL_ML_Regime    | 0.766  | -14.07%     | 2.37        | 21.8%   |
+| stressed_delta_mult | 2.5         |         | BL_ML_Regime_IC | 0.818  | -11.39%     | 1.65        | 23.2%   |
+| stressed_omega_mult | 1.0         |         | BL_ML_Regime    | 0.780  | -17.82%     | 2.21        | 12.9%   |
+| stressed_omega_mult | 1.0         |         | BL_ML_Regime_IC | 0.854  | -13.31%     | 1.33        | 18.1%   |
+| stressed_omega_mult | 1.5         |         | BL_ML_Regime    | 0.792  | -17.02%     | 2.12        | 14.6%   |
+| stressed_omega_mult | 1.5         |         | BL_ML_Regime_IC | 0.857  | -13.20%     | 1.33        | 18.2%   |
+| stressed_omega_mult | 2.5         | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| stressed_omega_mult | 2.5         | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| stressed_omega_mult | 4.0         |         | BL_ML_Regime    | 0.812  | -15.62%     | 2.12        | 17.2%   |
+| stressed_omega_mult | 4.0         |         | BL_ML_Regime_IC | 0.860  | -13.07%     | 1.32        | 18.4%   |
+| max_weight          | 0.25        |         | BL_ML_Regime    | 0.761  | -15.88%     | 1.90        | 16.7%   |
+| max_weight          | 0.25        |         | BL_ML_Regime_IC | 0.792  | -12.85%     | 1.28        | 20.5%   |
+| max_weight          | 0.35        | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| max_weight          | 0.35        | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| max_weight          | 0.5         |         | BL_ML_Regime    | 0.816  | -16.28%     | 2.20        | 16.1%   |
+| max_weight          | 0.5         |         | BL_ML_Regime_IC | 0.901  | -13.27%     | 1.36        | 17.1%   |
+| prior               | reference   | yes     | BL_ML_Regime    | 0.804  | -16.14%     | 2.12        | 16.2%   |
+| prior               | reference   | yes     | BL_ML_Regime_IC | 0.859  | -13.12%     | 1.32        | 18.4%   |
+| prior               | equal       |         | BL_ML_Regime    | 0.589  | -17.68%     | 2.24        | 17.5%   |
+| prior               | equal       |         | BL_ML_Regime_IC | 0.648  | -15.31%     | 1.47        | 17.2%   |
+| prior               | inverse_vol |         | BL_ML_Regime    | 0.602  | -14.27%     | 2.08        | 16.1%   |
+| prior               | inverse_vol |         | BL_ML_Regime_IC | 0.691  | -11.05%     | 1.39        | 17.1%   |
 
 ![Sharpe ratio across parameter settings](../results/figures/13_sensitivity.png)
 
@@ -529,14 +529,14 @@ Each prior against the portfolio that simply holds it:
 
 | Prior       | Variant            | Sharpe | Sharpe_PriorPortfolio | Diff   | CI_low | CI_high | p_value | MaxDrawdown | MaxDrawdown_PriorPortfolio |
 | ----------- | ------------------ | ------ | --------------------- | ------ | ------ | ------- | ------- | ----------- | -------------------------- |
-| reference   | BL_ML_Regime       | 0.844  | 0.927                 | -0.082 | -0.253 | 0.068   | 0.325   | -0.162      | -0.211                     |
-| reference   | BL_ML_Regime_IC    | 0.861  | 0.927                 | -0.066 | -0.200 | 0.052   | 0.309   | -0.132      | -0.211                     |
+| reference   | BL_ML_Regime       | 0.804  | 0.927                 | -0.122 | -0.310 | 0.040   | 0.172   | -0.161      | -0.211                     |
+| reference   | BL_ML_Regime_IC    | 0.859  | 0.927                 | -0.068 | -0.197 | 0.046   | 0.290   | -0.131      | -0.211                     |
 | reference   | BL_HistMean_Regime | 0.894  | 0.927                 | -0.033 | -0.194 | 0.110   | 0.678   | -0.153      | -0.211                     |
-| equal       | BL_ML_Regime       | 0.615  | 0.744                 | -0.129 | -0.284 | 0.012   | 0.092   | -0.178      | -0.236                     |
-| equal       | BL_ML_Regime_IC    | 0.654  | 0.744                 | -0.090 | -0.219 | 0.029   | 0.161   | -0.154      | -0.236                     |
+| equal       | BL_ML_Regime       | 0.589  | 0.744                 | -0.155 | -0.321 | -0.010  | 0.054   | -0.177      | -0.236                     |
+| equal       | BL_ML_Regime_IC    | 0.648  | 0.744                 | -0.096 | -0.225 | 0.025   | 0.138   | -0.153      | -0.236                     |
 | equal       | BL_HistMean_Regime | 0.651  | 0.744                 | -0.093 | -0.249 | 0.052   | 0.241   | -0.169      | -0.236                     |
-| inverse_vol | BL_ML_Regime       | 0.631  | 0.751                 | -0.120 | -0.320 | 0.045   | 0.218   | -0.144      | -0.174                     |
-| inverse_vol | BL_ML_Regime_IC    | 0.693  | 0.751                 | -0.058 | -0.207 | 0.074   | 0.430   | -0.112      | -0.174                     |
+| inverse_vol | BL_ML_Regime       | 0.602  | 0.751                 | -0.149 | -0.365 | 0.027   | 0.141   | -0.143      | -0.174                     |
+| inverse_vol | BL_ML_Regime_IC    | 0.691  | 0.751                 | -0.060 | -0.201 | 0.069   | 0.404   | -0.110      | -0.174                     |
 | inverse_vol | BL_HistMean_Regime | 0.693  | 0.751                 | -0.058 | -0.250 | 0.103   | 0.532   | -0.134      | -0.174                     |
 
 ![Prior portfolios and the Black-Litterman portfolios built on them](../results/figures/17_prior_comparison.png)
@@ -547,37 +547,37 @@ _Prior portfolios and the Black-Litterman portfolios built on them_
 
 | freeze_date | spec_hash        | spec_unchanged | months_since_freeze | inference_possible |
 | ----------- | ---------------- | -------------- | ------------------- | ------------------ |
-| 2026-07-31  | 94b4989460889eca | True           | 0                   | False              |
+| 2026-07-31  | 5dc8a748344f1fd0 | True           | 0                   | False              |
 
 No realised months have been added since the freeze date.
 
 ## 6. Discussion
 
-The research hypothesis is not supported. The highest Sharpe ratio among the Kairos portfolios and the classical benchmarks belongs to Static_60_40. The Sharpe difference of BL_ML_Regime to the best classical benchmark (Static_60_40) is -0.14 (95% interval -0.38 to 0.06, p = 0.231), not statistically significant; BL_ML_Regime is significantly better than 1 and significantly worse than 0 of the 5 classical benchmarks (5% level). For BL_ML_Regime_IC the difference is -0.12 (95% interval -0.34 to 0.06, p = 0.234), not statistically significant.
+The research hypothesis is not supported. The highest Sharpe ratio among the Kairos portfolios and the classical benchmarks belongs to Static_60_40. The Sharpe difference of BL_ML_Regime to the best classical benchmark (Static_60_40) is -0.18 (95% interval -0.43 to 0.03, p = 0.134), not statistically significant; BL_ML_Regime is significantly better than 1 and significantly worse than 0 of the 5 classical benchmarks (5% level). For BL_ML_Regime_IC the difference is -0.12 (95% interval -0.34 to 0.05, p = 0.216), not statistically significant.
 
-The forecasting layer is the weak link: the original stacked ensemble has a mean out-of-sample information coefficient of -0.047. 2 of 9 assets show an IC that is significantly negative at the 5% level (SPY, EFA) and 0 show one that is significantly positive. The original stacked ensemble beats the mean of the single models on 4 of 9 assets. Measured against an expanding historical-mean forecast, the original stacked ensemble has a negative out-of-sample R2 on 9 of 9 assets (mean -0.091), and across all models and assets 52 of 54 model-asset R2 values are negative. Hit rates flatter the models: for SPY the original stacked ensemble calls an up month in 82% of months and is right 60.7% of the time, while SPY rose in 68.7% of months, so an always-up rule would have scored higher. The stacked hit rate is below the always-up baseline on 8 of 9 assets.
+The forecasting layer is the weak link: the original stacked ensemble has a mean out-of-sample information coefficient of -0.062. 2 of 9 assets show an IC that is significantly negative at the 5% level (SPY, EFA) and 0 show one that is significantly positive. The original stacked ensemble beats the mean of the single models on 2 of 9 assets. Measured against an expanding historical-mean forecast, the original stacked ensemble has a negative out-of-sample R2 on 9 of 9 assets (mean -0.096), and across all models and assets 53 of 54 model-asset R2 values are negative. Hit rates flatter the models: for SPY the original stacked ensemble calls an up month in 82% of months and is right 60.2% of the time, while SPY rose in 68.7% of months, so an always-up rule would have scored higher. The stacked hit rate is below the always-up baseline on 9 of 9 assets.
 
-The LSTM trained on raw monthly returns produced forecasts about 1.9 times as variable as realised returns (mean R2 -3.8). Scaling the training target by its training mean and standard deviation brings the ratio to 0.34 and the mean R2 to -0.16. Two pooled cross-asset models, a convex stacker that includes the historical mean as a candidate, and a causal calibration that shrinks the stacked forecast toward the historical mean by the trailing 36-month slope were added. Mean R2 against the historical mean is -0.014 for the calibrated forecast, against -0.091 for the original stacked ensemble. Before 2019-01-01 the values are -0.019 and -0.111; from 2019-01-01 they are -0.012 and -0.082. IC is not informative for a forecast that is mostly the historical mean, so R2 is the metric used here. No forecast, single model or ensemble, has a positive mean R2 in either period, so the repairs remove the harm done by badly scaled forecasts but do not create skill. The calibrated forecast behaves almost like the historical mean, which remains the best return forecast in this sample.
+The LSTM trained on raw monthly returns produced forecasts about 1.9 times as variable as realised returns (mean R2 -3.8). Scaling the training target by its training mean and standard deviation brings the ratio to 0.34 and the mean R2 to -0.16. Two pooled cross-asset models, a convex stacker that includes the historical mean as a candidate, and a causal calibration that shrinks the stacked forecast toward the historical mean by the trailing 36-month slope were added. Mean R2 against the historical mean is -0.016 for the calibrated forecast, against -0.096 for the original stacked ensemble. Before 2019-01-01 the values are -0.025 and -0.106; from 2019-01-01 they are -0.014 and -0.093. IC is not informative for a forecast that is mostly the historical mean, so R2 is the metric used here. No forecast, single model or ensemble, has a positive mean R2 in either period, so the repairs remove the harm done by badly scaled forecasts but do not create skill. The calibrated forecast behaves almost like the historical mean, which remains the best return forecast in this sample.
 
-One candidate explanation is that the first 48 months of training are dominated by 2008. For SPY, the rank correlation between the filtered stress probability and the next-month return is -0.23 in the initial training window and +0.21 afterwards, and the sign differs between the two windows for 6 of 9 assets. For SPY this is consistent with models learning a stress-precedes-losses rule from the crisis that the rebounds of later years then contradicted. Re-fitting the tree and linear models under 4 alternative designs on the dates common to all designs gives a mean IC across assets of -0.008 as specified, then no regime features -0.034; no stress features +0.018; longer initial window -0.008; no regime longer window -0.034. The largest improvement comes from the no stress features design (+0.026). The R2 against the historical mean stays negative under every design, so no design yields a forecast that beats the historical mean, and the weak skill is not simply an artefact of the regime features or the initial window. It points to a weak and unstable one-month return signal. Choosing a design after seeing out-of-sample results is a post hoc choice, so the pipeline keeps the specified design and treats this only as a diagnostic that needs fresh data to confirm.
+One candidate explanation is that the first 48 months of training are dominated by 2008. For SPY, the rank correlation between the filtered stress probability and the next-month return is -0.23 in the initial training window and +0.21 afterwards, and the sign differs between the two windows for 6 of 9 assets. For SPY this is consistent with models learning a stress-precedes-losses rule from the crisis that the rebounds of later years then contradicted. Re-fitting the tree and linear models under 4 alternative designs on the dates common to all designs gives a mean IC across assets of -0.010 as specified, then no regime features -0.020; no stress features +0.002; longer initial window -0.010; no regime longer window -0.020. The largest improvement comes from the no stress features design (+0.011). The R2 against the historical mean stays negative under every design, so no design yields a forecast that beats the historical mean, and the weak skill is not simply an artefact of the regime features or the initial window. It points to a weak and unstable one-month return signal. Choosing a design after seeing out-of-sample results is a post hoc choice, so the pipeline keeps the specified design and treats this only as a diagnostic that needs fresh data to confirm.
 
-The decisive ablation applies a mechanical version of the same stress rule (risky weights divided by 1.8, the remainder in cash) to benchmarks that use no forecasts. On static 60/40 it moves the Sharpe ratio from 0.98 to 0.98 (difference -0.001, p = 0.994) and the maximum drawdown from -20.5% to -13.1%. On the market reference the Sharpe ratio moves from 0.93 to 0.91 (p = 0.795) and the drawdown from -21.1% to -13.6%. The best overlay (Regime_60_40) has a Sharpe ratio of 0.98, against 0.84 for BL_ML_Regime and 0.86 for BL_ML_Regime_IC. Neither forecast-driven portfolio exceeds a rule that needs no forecasts (paired Sharpe differences -0.14 and -0.12, p = 0.24 and 0.19), so the machine learning and Black-Litterman machinery shows no measurable benefit beyond the defensive exposure cut. With the original, uncalibrated views the Sharpe ratio is 0.73, and the Sharpe difference of the calibrated BL_ML_Regime to it is +0.12 (95% interval -0.02 to 0.27, p = 0.112), not statistically significant. Black-Litterman with naive historical-mean views scores 0.89, and the Sharpe difference of BL_ML_Regime to it is -0.05 (95% interval -0.11 to 0.01, p = 0.118), not statistically significant, so the machine learning views do not improve on naive ones inside the same allocator.
+The decisive ablation applies a mechanical version of the same stress rule (risky weights divided by 1.8, the remainder in cash) to benchmarks that use no forecasts. On static 60/40 it moves the Sharpe ratio from 0.98 to 0.98 (difference -0.001, p = 0.994) and the maximum drawdown from -20.5% to -13.1%. On the market reference the Sharpe ratio moves from 0.93 to 0.91 (p = 0.795) and the drawdown from -21.1% to -13.6%. The best overlay (Regime_60_40) has a Sharpe ratio of 0.98, against 0.80 for BL_ML_Regime and 0.86 for BL_ML_Regime_IC. Neither forecast-driven portfolio exceeds a rule that needs no forecasts (paired Sharpe differences -0.18 and -0.12, p = 0.12 and 0.17), so the machine learning and Black-Litterman machinery shows no measurable benefit beyond the defensive exposure cut. With the original, uncalibrated views the Sharpe ratio is 0.74, and the Sharpe difference of the calibrated BL_ML_Regime to it is +0.06 (95% interval -0.10 to 0.22, p = 0.451), not statistically significant. Black-Litterman with naive historical-mean views scores 0.89, and the Sharpe difference of BL_ML_Regime to it is -0.09 (95% interval -0.15 to -0.04, p = 0.003), statistically significant at the 5% level, so the machine learning views do not improve on naive ones inside the same allocator.
 
-The regime layer does reduce risk. BL_ML_Regime has a maximum drawdown of -16.2% against -22.8% without regime scaling, although the Sharpe gain is not significant. The cost shows in months flagged stressed at the decision date: BL_ML_Regime earned 8.6% annualised in those months, against 16.4% for Market_Reference and 17.7% for Equal_Weight. Stress flags in this sample were typically followed by rebounds, so cutting exposure protects capital in the drawdown but gives up return in the recovery.
+The regime layer does reduce risk. BL_ML_Regime has a maximum drawdown of -16.1% against -22.7% without regime scaling, although the Sharpe gain is not significant. The cost shows in months flagged stressed at the decision date: BL_ML_Regime earned 8.7% annualised in those months, against 16.4% for Market_Reference and 17.7% for Equal_Weight. Stress flags in this sample were typically followed by rebounds, so cutting exposure protects capital in the drawdown but gives up return in the recovery.
 
 The main backtest starts in January 2009, after the crisis trough, so it covers a long equity bull market that favours benchmarks with a high equity weight and leaves the 2008 drawdown outside the main window; the crisis-inclusive window below adds it. The Sharpe ratio of static 60/40 is 1.47 in the first half of the sample and 0.66 in the second, and 12 of 12 strategies show a lower Sharpe ratio in the second half, so conclusions about relative performance depend on the period.
 
-Splitting the sample at 2019-01-01 gives Sharpe ratios of BL_ML_Regime 0.93 before and 0.78 from 2019-01-01; Static_60_40 1.30 before and 0.71 from 2019-01-01; Regime_60_40 1.31 before and 0.70 from 2019-01-01. In the later period the Sharpe difference between BL_ML_Regime and static 60/40 is +0.07 (95% interval -0.21 to 0.29, p = 0.570), not statistically significant. This split is a reporting device, not a clean test: the repairs were motivated by full-sample diagnostics, so only months that arrive after the freeze date are untouched.
+Splitting the sample at 2019-01-01 gives Sharpe ratios of BL_ML_Regime 0.88 before and 0.74 from 2019-01-01; Static_60_40 1.30 before and 0.71 from 2019-01-01; Regime_60_40 1.31 before and 0.70 from 2019-01-01. In the later period the Sharpe difference between BL_ML_Regime and static 60/40 is +0.03 (95% interval -0.25 to 0.26, p = 0.784), not statistically significant. This split is a reporting device, not a clean test: the repairs were motivated by full-sample diagnostics, so only months that arrive after the freeze date are untouched.
 
-A crisis-inclusive window starts the out-of-sample forecasts in 2007-01-31 with a 24-month initial training period, which adds the 2008 crisis to the test (235 months). In that window Static_60_40 has a Sharpe ratio of 0.72 and a maximum drawdown of -29.5%, Regime_60_40 has 0.77 and -16.6%, and BL_ML_Regime has 0.71 and -17.2%. The Sharpe difference between the overlay and plain 60/40 is +0.06 (95% interval -0.09 to 0.19, p = 0.433), not statistically significant. BL_ML_Regime against the overlay: -0.06 (95% interval -0.28 to 0.14, p = 0.569), not statistically significant.
+A crisis-inclusive window starts the out-of-sample forecasts in 2007-01-31 with a 24-month initial training period, which adds the 2008 crisis to the test (235 months). In that window Static_60_40 has a Sharpe ratio of 0.72 and a maximum drawdown of -29.5%, Regime_60_40 has 0.77 and -16.6%, and BL_ML_Regime has 0.69 and -17.2%. The Sharpe difference between the overlay and plain 60/40 is +0.06 (95% interval -0.09 to 0.19, p = 0.433), not statistically significant. BL_ML_Regime against the overlay: -0.08 (95% interval -0.31 to 0.11, p = 0.428), not statistically significant.
 
-BL_ML_NoRegime has the highest Sharpe ratio of the three Kairos variants, but it is the best of several variants tried on one sample (five counting the raw-view and historical-mean ablations) and should be read as exploratory. Its deflated Sharpe ratio gives a probability of 0.999 that the true Sharpe ratio is positive after allowing for 5 trials and 0.999 after allowing for 10. This tests the Sharpe ratio against zero, not against 60/40, so it does not contradict the paired comparisons above.
+BL_ML_Regime_IC has the highest Sharpe ratio of the three Kairos variants, but it is the best of several variants tried on one sample (five counting the raw-view and historical-mean ablations) and should be read as exploratory. Its deflated Sharpe ratio gives a probability of 0.999 that the true Sharpe ratio is positive after allowing for 5 trials and 0.999 after allowing for 10. This tests the Sharpe ratio against zero, not against 60/40, so it does not contradict the paired comparisons above. Against its sibling BL_ML_Regime the Sharpe difference is +0.05 (95% interval -0.07 to 0.18, p = 0.385), not statistically significant.
 
-Across 44 one-at-a-time parameter changes (tau, base_delta, stressed_delta_mult, stressed_omega_mult, max_weight, prior), the Sharpe ratio ranges BL_ML_Regime from 0.61 to 0.90 and BL_ML_Regime_IC from 0.65 to 0.90, against 0.98 for Static_60_40, and 0 of 44 runs exceed the 60/40 value. No setting in the grid closes the gap, so the shortfall is not a tuning artefact. An equal-weight prior in place of the reference allocation gives 0.61 and 0.65.
+Across 44 one-at-a-time parameter changes (tau, base_delta, stressed_delta_mult, stressed_omega_mult, max_weight, prior), the Sharpe ratio ranges BL_ML_Regime from 0.59 to 0.88 and BL_ML_Regime_IC from 0.65 to 0.90, against 0.98 for Static_60_40, and 0 of 44 runs exceed the 60/40 value. No setting in the grid closes the gap, so the shortfall is not a tuning artefact. An equal-weight prior in place of the reference allocation gives 0.59 and 0.65.
 
-The Sharpe ratio of a Black-Litterman portfolio depends on the prior, because each prior is a different starting portfolio, so the right comparison is against that prior's own portfolio. The Sharpe difference of BL_ML_Regime to its prior portfolio is: reference -0.08 (p = 0.32); equal -0.13 (p = 0.09); inverse_vol -0.12 (p = 0.22). No prior shows a significant gain, so the Black-Litterman layer adds little beyond the prior it starts from. No observed market-capitalisation series is bundled, because none could be sourced for these exchange-traded funds without hand-picking splits; the pipeline accepts one in data/raw/prior_weights.csv and then adds it to this comparison.
+The Sharpe ratio of a Black-Litterman portfolio depends on the prior, because each prior is a different starting portfolio, so the right comparison is against that prior's own portfolio. The Sharpe difference of BL_ML_Regime to its prior portfolio is: reference -0.12 (p = 0.17); equal -0.15 (p = 0.05); inverse_vol -0.15 (p = 0.14). No prior shows a significant gain, so the Black-Litterman layer adds little beyond the prior it starts from. No observed market-capitalisation series is bundled, because none could be sourced for these exchange-traded funds without hand-picking splits; the pipeline accepts one in data/raw/prior_weights.csv and then adds it to this comparison.
 
-The specification is frozen as of 2026-07-31 (hash 94b4989460889eca). 0 realised months have been added since then, so there is no confirmatory evidence yet. Re-run with refreshed data to evaluate months as they arrive.
+The specification is frozen as of 2026-07-31 (hash 5dc8a748344f1fd0). 0 realised months have been added since then, so there is no confirmatory evidence yet. Re-run with refreshed data to evaluate months as they arrive.
 
 ## 7. Limitations
 

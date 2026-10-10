@@ -7,7 +7,12 @@ import config
 from backtest.engine import performance
 
 SPEC_DIRS = ("models", "features")
-SPEC_FILES = ("backtest/engine.py", "backtest/strategies.py", "backtest/stats.py")
+SPEC_FILES = (
+    "backtest/engine.py",
+    "backtest/strategies.py",
+    "backtest/stats.py",
+    "requirements.txt",
+)
 
 
 def spec_hash(paths=config.PATHS):
