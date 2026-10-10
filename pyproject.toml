@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kairos"
+version = "0.1.0"
+description = "Regime-aware portfolio intelligence"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { file = "LICENSE" }
+dynamic = ["dependencies"]
+
+[project.scripts]
+kairos = "kairos.pipeline:main"
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["infrastructure/requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["code"]
+include = ["kairos*"]
+
+[tool.pytest.ini_options]
+testpaths = ["code/tests"]
+pythonpath = ["code"]
+addopts = "-p no:cacheprovider"
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+known_first_party = ["kairos", "tests"]

@@ -24,23 +24,23 @@ The central hypothesis is not supported on this sample. No forecast has out-of-s
 | `Regime_60_40`       | 0.98   | 8.2%        | 6.9%     | -13.1%       |
 | `Market_Reference`   | 0.93   | 10.4%       | 9.7%     | -21.1%       |
 
-Figures come from the committed run on data through September 2026 with the package versions in `requirements.txt` (CI tests Python 3.11 and 3.12), and regenerate with `python run.py all`. Forecasts depend on the XGBoost version, so the pinned versions matter. The full discussion is in `reports/Kairos_Report.md`.
+Figures come from the committed run on data through September 2026 with the package versions in `infrastructure/requirements.txt` (CI tests Python 3.11 and 3.12), and regenerate with `python scripts/run.py all`. Forecasts depend on the XGBoost version, so the pinned versions matter. The full discussion is in `reports/Kairos_Report.md`.
 
 ---
 
 ## Quick start
 
 ```
-pip install -r requirements.txt
-python run.py all
+pip install -r infrastructure/requirements.txt
+python scripts/run.py all
 ```
 
 The first run downloads prices from Yahoo Finance and caches them in `data/raw/`. Later runs reuse the cache. You can also place your own `Date,Close` CSV files there, named like `SPY.csv`, `BTC_USD.csv`, `VIX.csv` and `IRX.csv`. If Pandoc is installed, the report is also converted to Word. The notebooks are executed when `nbclient` and `ipykernel` are installed, so they ship with saved outputs.
 
 | Command                 | Purpose                                                    |
 | ----------------------- | ---------------------------------------------------------- |
-| `python run.py all`     | Run every stage in order                                   |
-| `python run.py <stage>` | Run a single stage                                         |
+| `python scripts/run.py all`     | Run every stage in order                           |
+| `python scripts/run.py <stage>` | Run a single stage                                 |
 | `--refresh`             | Download prices again instead of using the cache           |
 | `--assets SPY TLT`      | Restrict forecasting to the listed tickers                 |
 | `--jobs N`              | Number of parallel workers for forecasting and diagnostics |
@@ -66,7 +66,7 @@ The first run downloads prices from Yahoo Finance and caches them in `data/raw/`
 | 13  | `deck`        | Builds the slide deck                                              | `reports/Kairos_Deck.pptx`                                         |
 | 14  | `notebooks`   | Writes and executes four results notebooks                         | `notebooks/*.ipynb`                                                |
 
-The forecast, diagnostics, sensitivity and windows stages are the slow ones (a few minutes to about fifteen on one core). `python run.py all` takes roughly an hour on a single core.
+The forecast, diagnostics, sensitivity and windows stages are the slow ones (a few minutes to about fifteen on one core). `python scripts/run.py all` takes roughly an hour on a single core.
 
 ---
 
@@ -90,7 +90,7 @@ Daily adjusted closes come from Yahoo Finance between 2003 and September 2026. N
 
 The prior weights are a hand-picked reference allocation, not an observed market-capitalisation series, and no observed series is bundled because none could be sourced for these exchange-traded funds without hand-picking new splits. Alternatives are tested in `prior_comparison.csv`: equal weight, trailing inverse volatility, and an observed prior. To use an observed prior, place `data/raw/prior_weights.csv` with a date index and one weight column per ticker (for example annual market-value weights from a published global market portfolio dataset); the comparison then adds it automatically. Each Black-Litterman portfolio is compared with the portfolio that holds its own prior, because a different prior is a different starting portfolio.
 
-`data/processed/data_manifest.csv` records the rows, date range and file hash of every cached series. A fresh download (`python run.py all --refresh`) can be compared against it. The data stage needs network access to Yahoo Finance for that, and later runs reuse the cache.
+`data/processed/data_manifest.csv` records the rows, date range and file hash of every cached series. A fresh download (`python scripts/run.py all --refresh`) can be compared against it. The data stage needs network access to Yahoo Finance for that, and later runs reuse the cache.
 
 `validate_panel` checks every run before any model sees the data.
 
@@ -229,22 +229,42 @@ The report, deck and notebooks read the results files, so no number is typed by 
 
 ## Project layout
 
-| Path         | Responsibility                                                    |
-| ------------ | ----------------------------------------------------------------- |
-| `config.py`  | Parameters, seeds and paths                                       |
-| `run.py`     | Command line entry point                                          |
-| `data/`      | Download, panel build and validation                              |
-| `features/`  | Causal feature engineering                                        |
-| `models/`    | Regimes, forecasting, diagnostics, LSTM, SHAP, Black-Litterman    |
-| `backtest/`  | Strategies, engine, bootstrap test, sensitivity, windows, holdout |
-| `reporting/` | Figures, report, deck and notebooks                               |
-| `tests/`     | Unit and end-to-end tests                                         |
+```
+Kairos/
+  code/
+    kairos/            core package
+      config.py        parameters, seeds and paths
+      pipeline.py      stage registry and command line logic
+      data/            download, panel build, validation, CSV loaders
+      features/        causal feature engineering
+      models/          regimes, forecasting, diagnostics, LSTM, SHAP, Black-Litterman
+      backtest/        strategies, engine, bootstrap test, sensitivity, windows, holdout
+      reporting/       figures, report, deck and notebooks
+    tests/             unit and end-to-end tests
+  scripts/             command line entry points (run.py)
+  infrastructure/      pinned requirements and Docker build
+  .github/workflows/   CI (GitHub requires this location)
+  data/                raw price cache and processed intermediate files
+  notebooks/           executed results notebooks
+  results/, reports/   generated by the pipeline (created on first run)
+  pyproject.toml       packaging and pytest settings
+```
+
+| Path                       | Responsibility                                                    |
+| -------------------------- | ----------------------------------------------------------------- |
+| `code/kairos/config.py`    | Parameters, seeds and paths (override the root with `KAIROS_ROOT`) |
+| `code/kairos/pipeline.py`  | Stage registry; also runs as `python -m kairos <stage>`           |
+| `scripts/run.py`           | Command line entry point                                          |
+| `infrastructure/`          | `requirements.txt` and `docker/Dockerfile`                        |
+
+To install the package in editable mode, run `pip install -e .` from the project root. This adds a `kairos` command that is equivalent to `python scripts/run.py`.
+
 
 ---
 
 ## Key parameters
 
-All parameters live in `config.py`, and the random seed is fixed at 690.
+All parameters live in `code/kairos/config.py`, and the random seed is fixed at 690.
 
 | Parameter              | Value      | Meaning                                                       |
 | ---------------------- | ---------- | ------------------------------------------------------------- |
@@ -266,13 +286,13 @@ All parameters live in `config.py`, and the random seed is fixed at 690.
 | `CRISIS_INITIAL_TRAIN` | 24         | Initial training months in the crisis-inclusive window        |
 | `SENSITIVITY_GRID`     | see file   | Parameter values in the sensitivity runs                      |
 
-Dependencies are pinned in `requirements.txt`.
+Dependencies are pinned in `infrastructure/requirements.txt`.
 
 ---
 
 ## Tests
 
-Run the suite with `python -m pytest tests -q`. Tests use a factor-model fixture panel from `tests/fixtures.py`, never the real results.
+Run the suite from the project root with `python -m pytest -q` (pytest settings are in `pyproject.toml`). Tests live in `code/tests/` and use a factor-model fixture panel from `code/tests/fixtures.py`, never the real results.
 
 | Test file                 | Coverage                                                                                                    |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------- |

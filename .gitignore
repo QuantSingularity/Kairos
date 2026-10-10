@@ -2,6 +2,10 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 *.pyc
+*.egg-info/
+build/
+dist/
+.venv/
 data/raw/*.csv
 data/processed/*.csv
 reports/*.docx
