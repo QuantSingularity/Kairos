@@ -1,6 +1,9 @@
+"""Parameters, seeds and filesystem paths for the whole project."""
+
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 ROOT = Path(os.environ.get("KAIROS_ROOT", PACKAGE_DIR.parents[1])).resolve()
@@ -8,37 +11,47 @@ ROOT = Path(os.environ.get("KAIROS_ROOT", PACKAGE_DIR.parents[1])).resolve()
 
 @dataclass(frozen=True)
 class Paths:
+    """Project directories derived from one root."""
+
     root: Path = ROOT
 
     @property
-    def raw(self):
+    def raw(self) -> Path:
+        """Cached downloads."""
         return self.root / "data" / "raw"
 
     @property
-    def processed(self):
+    def processed(self) -> Path:
+        """Intermediate CSV files."""
         return self.root / "data" / "processed"
 
     @property
-    def results(self):
+    def results(self) -> Path:
+        """Generated result files."""
         return self.root / "results"
 
     @property
-    def tables(self):
+    def tables(self) -> Path:
+        """Result tables."""
         return self.results / "tables"
 
     @property
-    def figures(self):
+    def figures(self) -> Path:
+        """Result figures."""
         return self.results / "figures"
 
     @property
-    def reports(self):
+    def reports(self) -> Path:
+        """Report and deck."""
         return self.root / "reports"
 
     @property
-    def notebooks(self):
+    def notebooks(self) -> Path:
+        """Executed notebooks."""
         return self.root / "notebooks"
 
-    def ensure(self):
+    def ensure(self) -> None:
+        """Create every output directory."""
         for p in (
             self.raw,
             self.processed,
@@ -129,7 +142,7 @@ DSR_TRIALS = (5, 10)
 DIAG_INITIAL_TRAIN = 72
 DIAG_MODELS = ["xgb", "rf", "ridge"]
 
-SENSITIVITY_GRID = {
+SENSITIVITY_GRID: dict[str, list[Any]] = {
     "tau": [0.025, 0.05, 0.1, 0.2],
     "base_delta": [1.5, 2.5, 4.0, 6.0],
     "stressed_delta_mult": [1.0, 1.4, 1.8, 2.5],

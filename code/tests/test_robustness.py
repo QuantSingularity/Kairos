@@ -3,15 +3,12 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
-
 from kairos import config
 from kairos.backtest import engine, holdout
 from kairos.backtest import strategies as st
-from kairos.backtest import windows
 from kairos.data import loader
 from kairos.models import black_litterman as bl
-from kairos.models import forecasting as fc
-from kairos.models import pooled
+from kairos.models import ensembles, pooled, skill, walk_forward
 from tests.fixtures import make_forecasts, make_panel, write_raw_cache
 
 
@@ -21,7 +18,7 @@ def test_calibration_is_bounded_between_base_and_prediction():
     y = pd.Series(rng.normal(0.01, 0.04, n))
     pred = pd.Series(y.values + rng.normal(0, 0.03, n))
     base = pd.Series(0.01, index=y.index)
-    out, slope = fc.calibrate_to_mean(pred, y, base)
+    out, slope = ensembles.calibrate_to_mean(pred, y, base)
     ok = slope.dropna()
     assert ((ok >= 0) & (ok <= 1)).all()
     lo, hi = np.minimum(pred, base), np.maximum(pred, base)
@@ -35,8 +32,8 @@ def test_calibration_shrinks_noise_but_keeps_signal():
     y = pd.Series(rng.normal(0.0, 0.04, n))
     base = pd.Series(0.0, index=y.index)
     noise, signal = pd.Series(rng.normal(0, 0.05, n)), y + rng.normal(0, 0.01, n)
-    _, s_noise = fc.calibrate_to_mean(noise, y, base)
-    _, s_signal = fc.calibrate_to_mean(signal, y, base)
+    _, s_noise = ensembles.calibrate_to_mean(noise, y, base)
+    _, s_signal = ensembles.calibrate_to_mean(signal, y, base)
     assert s_noise.iloc[60:].mean() < 0.3 < 0.7 < s_signal.iloc[60:].mean()
 
 
@@ -46,10 +43,10 @@ def test_calibration_never_uses_future_values():
     y = pd.Series(rng.normal(0, 0.04, n))
     pred = pd.Series(rng.normal(0, 0.04, n))
     base = pd.Series(0.0, index=y.index)
-    a, _ = fc.calibrate_to_mean(pred, y, base)
+    a, _ = ensembles.calibrate_to_mean(pred, y, base)
     y2, p2 = y.copy(), pred.copy()
     y2.iloc[50:], p2.iloc[51:] = 9.0, 9.0
-    b, _ = fc.calibrate_to_mean(p2, y2, base)
+    b, _ = ensembles.calibrate_to_mean(p2, y2, base)
     assert np.allclose(a.iloc[:51], b.iloc[:51])
 
 
@@ -59,7 +56,7 @@ def test_stack_with_fallback_and_weights():
     y = pd.Series(rng.normal(0, 0.03, n))
     P = pd.DataFrame({"a": y + rng.normal(0, 0.01, n), "b": rng.normal(0, 0.03, n)})
     fallback = pd.Series(0.123, index=y.index)
-    _, stacked, w = fc.stack_forecasts(
+    _, stacked, w = ensembles.stack_forecasts(
         P, y, window=24, fallback=fallback, return_weights=True
     )
     assert np.allclose(stacked.iloc[:24], 0.123)
@@ -73,7 +70,7 @@ def test_lstm_forecasts_are_not_over_dispersed(monkeypatch):
     n = 110
     X = rng.normal(size=(n, 4))
     y = rng.normal(0.01, 0.03, n)
-    pred = fc.walk_forward_lstm(X, y, start=50)
+    pred = walk_forward.walk_forward_lstm(X, y, start=50)
     ok = ~np.isnan(pred)
     assert 0 < np.std(pred[ok]) / np.std(y[ok]) < 1.5
 
@@ -204,13 +201,6 @@ def test_spec_hash_and_freeze(tmp_path, monkeypatch):
     )
 
 
-def test_window_context_restores_config():
-    old = config.INITIAL_TRAIN_MONTHS
-    with windows.initial_train(24):
-        assert config.INITIAL_TRAIN_MONTHS == 24
-    assert config.INITIAL_TRAIN_MONTHS == old
-
-
 def test_period_tables_split_at_cut(monkeypatch):
     monkeypatch.setattr(config, "HOLDOUT_START", "2016-01-01")
     idx = pd.date_range("2013-01-31", periods=60, freq="ME")
@@ -234,10 +224,10 @@ def test_skill_by_period_counts():
     idx = pd.date_range("2013-01-31", periods=n, freq="ME")
     target = rng.normal(0.01, 0.04, n)
     df = pd.DataFrame(
-        {c: target + rng.normal(0, 0.05, n) for c in fc.SKILL_COLUMNS}, index=idx
+        {c: target + rng.normal(0, 0.05, n) for c in skill.SKILL_COLUMNS}, index=idx
     )
     df["target"] = target
-    table = fc.skill_by_period({"X": df}, cut="2016-01-01")
+    table = skill.skill_by_period({"X": df}, cut="2016-01-01")
     assert set(table["Period"]) == {"full", "development", "holdout"}
     assert (table["Assets"] == 1).all()
 

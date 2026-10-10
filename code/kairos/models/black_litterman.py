@@ -1,17 +1,20 @@
+"""Black-Litterman allocation with regime-aware view uncertainty."""
+
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from kairos import config
 from scipy.optimize import minimize
 from sklearn.covariance import LedoitWolf
-
-from kairos import config
 
 COLUMNS = config.ASSETS + ["CASH"]
 
 
 @dataclass(frozen=True)
 class BLParams:
+    """Black-Litterman parameters."""
+
     tau: float
     base_delta: float
     stressed_delta_mult: float
@@ -20,7 +23,8 @@ class BLParams:
     prior: str = "reference"
 
 
-def default_params():
+def default_params() -> BLParams:
+    """Parameters taken from the configuration."""
     return BLParams(
         config.TAU,
         config.BASE_DELTA,
@@ -30,7 +34,8 @@ def default_params():
     )
 
 
-def load_prior_table(paths=config.PATHS):
+def load_prior_table(paths: config.Paths = config.PATHS) -> pd.DataFrame | None:
+    """Observed prior weights, when the optional file exists."""
     path = paths.raw / config.OBSERVED_PRIOR_FILE
     if not path.exists():
         return None
@@ -38,7 +43,14 @@ def load_prior_table(paths=config.PATHS):
     return table[[c for c in table.columns if c in config.ASSETS]]
 
 
-def prior_weights(kind, names, hist, date, table=None):
+def prior_weights(
+    kind: str,
+    names: list[str],
+    hist: pd.DataFrame,
+    date: pd.Timestamp,
+    table: pd.DataFrame | None = None,
+) -> dict[str, float]:
+    """Prior portfolio weights for the named assets."""
     if kind == "reference":
         return {a: config.MARKET_WEIGHTS[a] for a in names}
     if kind == "equal":
@@ -58,24 +70,38 @@ def prior_weights(kind, names, hist, date, table=None):
     raise ValueError(f"unknown prior {kind}")
 
 
-def shrunk_cov(returns):
+def shrunk_cov(returns: pd.DataFrame) -> pd.DataFrame:
+    """Ledoit-Wolf shrunk covariance."""
     cov = LedoitWolf().fit(returns.values).covariance_
     return pd.DataFrame(cov, index=returns.columns, columns=returns.columns)
 
 
-def equilibrium_returns(cov, weights, delta):
+def equilibrium_returns(
+    cov: pd.DataFrame, weights: dict[str, float], delta: float
+) -> np.ndarray:
+    """Returns implied by the prior weights."""
     w = np.array([weights[a] for a in cov.columns], dtype=float)
     return delta * cov.values @ (w / w.sum())
 
 
-def posterior(cov, pi, Q, omega_diag, tau=config.TAU):
+def posterior(
+    cov: pd.DataFrame,
+    pi: np.ndarray,
+    Q: np.ndarray,
+    omega_diag: np.ndarray | list[float],
+    tau: float = config.TAU,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Posterior mean and covariance for absolute views."""
     sigma_inv = np.linalg.inv(tau * cov.values)
     omega_inv = np.diag(1.0 / np.asarray(omega_diag))
     M = np.linalg.inv(sigma_inv + omega_inv)
     return M @ (sigma_inv @ pi + omega_inv @ Q), cov.values + M
 
 
-def optimize_weights(mu, cov, delta, max_weight=config.MAX_WEIGHT):
+def optimize_weights(
+    mu: np.ndarray, cov: np.ndarray, delta: float, max_weight: float = config.MAX_WEIGHT
+) -> np.ndarray:
+    """Long-only weights with a cash allowance."""
     mu, cov, n = np.asarray(mu, dtype=float), np.asarray(cov, dtype=float), len(mu)
     res = minimize(
         lambda w: -(mu @ w - 0.5 * delta * w @ cov @ w),
@@ -97,12 +123,13 @@ def optimize_weights(mu, cov, delta, max_weight=config.MAX_WEIGHT):
 
 
 def build_universe(
-    forecasts,
-    log_rets,
-    min_history=config.MIN_HISTORY,
-    min_universe=config.MIN_UNIVERSE,
-    view=None,
-):
+    forecasts: dict[str, pd.DataFrame],
+    log_rets: pd.DataFrame,
+    min_history: int = config.MIN_HISTORY,
+    min_universe: int = config.MIN_UNIVERSE,
+    view: str | None = None,
+) -> dict[pd.Timestamp, list[str]]:
+    """Eligible assets at each decision date."""
     view = view or config.VIEW_COLUMN
     dates = sorted(
         set().union(*[set(df[view].dropna().index) for df in forecasts.values()])
@@ -122,7 +149,13 @@ def build_universe(
     return universe
 
 
-def trailing_stats(df, date, window=config.STACK_WINDOW, view=None):
+def trailing_stats(
+    df: pd.DataFrame,
+    date: pd.Timestamp,
+    window: int = config.STACK_WINDOW,
+    view: str | None = None,
+) -> tuple[float | None, float]:
+    """Trailing forecast error variance and information coefficient."""
     view = view or config.VIEW_COLUMN
     hist = df.loc[df.index < date, ["target", view]].dropna().tail(window)
     err_var = (
@@ -136,17 +169,18 @@ def trailing_stats(df, date, window=config.STACK_WINDOW, view=None):
 
 
 def black_litterman_weights(
-    forecasts,
-    log_rets,
-    rf,
-    regime,
-    universe,
-    use_regime=True,
-    ic_shrink=False,
-    params=None,
-    view=None,
-    prior_table=None,
-):
+    forecasts: dict[str, pd.DataFrame],
+    log_rets: pd.DataFrame,
+    rf: pd.Series,
+    regime: pd.Series,
+    universe: dict[pd.Timestamp, list[str]],
+    use_regime: bool = True,
+    ic_shrink: bool = False,
+    params: BLParams | None = None,
+    view: str | None = None,
+    prior_table: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    """Monthly Black-Litterman target weights."""
     p = params or default_params()
     view = view or config.VIEW_COLUMN
     excess = log_rets.sub(rf, axis=0)
@@ -160,7 +194,7 @@ def black_litterman_weights(
         pi = equilibrium_returns(cov, prior, p.base_delta)
         Q = np.array([forecasts[a].at[d, view] - rf.at[d] for a in names])
         omega = []
-        for i, a in enumerate(names):
+        for a in names:
             err_var, ic = trailing_stats(forecasts[a], d, view=view)
             base = err_var if err_var is not None else float(np.var(hist[a]))
             mult = p.stressed_omega_mult if stressed else 1.0

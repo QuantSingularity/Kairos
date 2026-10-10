@@ -1,12 +1,18 @@
+"""Figures for the report and deck."""
+
+import logging
+from typing import Any
+
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 from kairos import config
 from kairos.data.store import load_panel, load_regimes, load_returns
+
+log = logging.getLogger(__name__)
 
 plt.rcParams.update(
     {
@@ -60,13 +66,15 @@ FOCUS = [
 ]
 
 
-def _save(fig, paths, name):
+def _save(fig: Any, paths: config.Paths, name: str) -> None:
+    """Save and close a figure."""
     fig.tight_layout()
     fig.savefig(paths.figures / name)
     plt.close(fig)
 
 
-def asset_universe(panel, paths):
+def asset_universe(panel: pd.DataFrame, paths: config.Paths) -> None:
+    """Data availability by asset."""
     fig, ax = plt.subplots(figsize=(8, 4))
     for a in config.ASSETS:
         if a in panel and a not in config.CRYPTO:
@@ -78,7 +86,10 @@ def asset_universe(panel, paths):
     _save(fig, paths, "01_asset_universe.png")
 
 
-def regime_timeline(panel, regimes, paths):
+def regime_timeline(
+    panel: pd.DataFrame, regimes: pd.DataFrame, paths: config.Paths
+) -> None:
+    """SPY with walk-forward stress periods."""
     fig, (a1, a2) = plt.subplots(
         2, 1, figsize=(8, 5), sharex=True, gridspec_kw={"height_ratios": [2, 1]}
     )
@@ -101,7 +112,8 @@ def regime_timeline(panel, regimes, paths):
     _save(fig, paths, "02_regime_timeline.png")
 
 
-def regime_validation(table, paths):
+def regime_validation(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Share of days flagged stressed by method."""
     fig, ax = plt.subplots(figsize=(8, 3.6))
     x = np.arange(len(table))
     ax.bar(x - 0.2, table["Rate_hmm"], 0.4, label="HMM", color="#1f77b4")
@@ -116,7 +128,8 @@ def regime_validation(table, paths):
     _save(fig, paths, "03_regime_validation.png")
 
 
-def model_ic(table, paths):
+def model_ic(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Information coefficient by asset and model."""
     cols = [f"IC_{m}" for m in config.MODELS + config.POOLED] + ["IC_ensemble_stacked"]
     t = table.set_index("Asset")[[c for c in cols if c in table]]
     fig, ax = plt.subplots(figsize=(8, 3.8))
@@ -129,7 +142,8 @@ def model_ic(table, paths):
     _save(fig, paths, "04_model_ic.png")
 
 
-def shap_regime(shap_tables, paths):
+def shap_regime(shap_tables: dict[str, pd.DataFrame], paths: config.Paths) -> None:
+    """Regime-conditional SHAP importance."""
     if not shap_tables:
         return
     asset = "SPY" if "SPY" in shap_tables else next(iter(shap_tables))
@@ -140,14 +154,15 @@ def shap_regime(shap_tables, paths):
     _save(fig, paths, "05_shap_regime.png")
 
 
-def weights_chart(weights, paths):
+def weights_chart(weights: dict[str, pd.DataFrame], paths: config.Paths) -> None:
+    """Portfolio weights over time."""
     w = weights["BL_ML_Regime"]
     fig, ax = plt.subplots(figsize=(8, 3.8))
     ax.stackplot(
         w.index,
         w.T.values,
         labels=w.columns,
-        colors=plt.cm.tab20(np.linspace(0, 1, w.shape[1])),
+        colors=plt.get_cmap("tab20")(np.linspace(0, 1, w.shape[1])),
     )
     ax.set_ylim(0, 1)
     ax.set_title("BL_ML_Regime portfolio weights (cash shown as CASH)")
@@ -155,7 +170,8 @@ def weights_chart(weights, paths):
     _save(fig, paths, "06_weights.png")
 
 
-def cumulative_returns(returns, paths):
+def cumulative_returns(returns: dict[str, pd.DataFrame], paths: config.Paths) -> None:
+    """Cumulative net returns."""
     fig, ax = plt.subplots(figsize=(8, 4))
     for i, n in enumerate(FOCUS):
         if n in returns:
@@ -171,7 +187,8 @@ def cumulative_returns(returns, paths):
     _save(fig, paths, "07_cumulative_returns.png")
 
 
-def drawdowns(returns, paths):
+def drawdowns(returns: dict[str, pd.DataFrame], paths: config.Paths) -> None:
+    """Drawdown paths."""
     fig, ax = plt.subplots(figsize=(8, 3.6))
     for i, n in enumerate(FOCUS):
         if n in returns:
@@ -182,7 +199,8 @@ def drawdowns(returns, paths):
     _save(fig, paths, "08_drawdowns.png")
 
 
-def sharpe_significance(sig, paths):
+def sharpe_significance(sig: pd.DataFrame, paths: config.Paths) -> None:
+    """Sharpe differences with bootstrap intervals."""
     s = sig[sig["strategy"] == "BL_ML_Regime"].sort_values("diff")
     fig, ax = plt.subplots(figsize=(7, 3.8))
     y = np.arange(len(s))
@@ -201,7 +219,8 @@ def sharpe_significance(sig, paths):
     _save(fig, paths, "09_sharpe_significance.png")
 
 
-def regime_performance(regime_table, paths):
+def regime_performance(regime_table: pd.DataFrame, paths: config.Paths) -> None:
+    """Annualised return by regime."""
     t = regime_table.xs("Stressed", level=1)["AnnReturn"].reindex(ORDER).dropna()
     c = regime_table.xs("Calm", level=1)["AnnReturn"].reindex(t.index)
     fig, ax = plt.subplots(figsize=(8, 3.6))
@@ -216,7 +235,8 @@ def regime_performance(regime_table, paths):
     _save(fig, paths, "10_regime_performance.png")
 
 
-def forecast_skill(table, paths):
+def forecast_skill(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Forecast skill by asset."""
     t = table.dropna(subset=["IC_ensemble_stacked"]).set_index("Asset")
     fig, axes = plt.subplots(1, 3, figsize=(11, 3.6))
     t["IC_ensemble_stacked"].plot.bar(ax=axes[0], color="#1f77b4")
@@ -257,7 +277,10 @@ def forecast_skill(table, paths):
     _save(fig, paths, "11_forecast_skill.png")
 
 
-def ic_diagnostics(summary, table, paths):
+def ic_diagnostics(
+    summary: pd.DataFrame, table: pd.DataFrame, paths: config.Paths
+) -> None:
+    """Mean IC by forecasting design."""
     names = list(summary.index)
     fig, axes = plt.subplots(1, 2, figsize=(10, 3.6))
     x = np.arange(len(names))
@@ -278,7 +301,8 @@ def ic_diagnostics(summary, table, paths):
     _save(fig, paths, "12_ic_diagnostics.png")
 
 
-def sensitivity_chart(table, paths):
+def sensitivity_chart(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Sharpe across parameter settings."""
     params = list(table["Parameter"].unique())
     cols = 3
     rows = int(np.ceil(len(params) / cols))
@@ -297,7 +321,8 @@ def sensitivity_chart(table, paths):
     _save(fig, paths, "13_sensitivity.png")
 
 
-def overlay_ablation(summary, paths):
+def overlay_ablation(summary: pd.DataFrame, paths: config.Paths) -> None:
+    """Forecast-driven portfolios against mechanical overlays."""
     names = [
         n
         for n in (
@@ -326,7 +351,8 @@ def overlay_ablation(summary, paths):
     _save(fig, paths, "14_overlay_ablation.png")
 
 
-def forecast_repair(skill, paths):
+def forecast_repair(skill: pd.DataFrame, paths: config.Paths) -> None:
+    """R2 against the historical mean by forecast and period."""
     t = skill[skill["Period"].isin(["development", "holdout"])]
     wide = t.pivot(index="Forecast", columns="Period", values="MeanR2OOS")
     order = [f for f in skill["Forecast"].unique() if f in wide.index]
@@ -355,7 +381,8 @@ def forecast_repair(skill, paths):
     _save(fig, paths, "15_forecast_repair.png")
 
 
-def window_robustness(table, paths):
+def window_robustness(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Sharpe ratio by evaluation window."""
     names = [n for n in ORDER if n in table.index]
     fig, ax = plt.subplots(figsize=(10, 3.8))
     x = np.arange(len(names))
@@ -380,7 +407,8 @@ def window_robustness(table, paths):
     _save(fig, paths, "16_window_robustness.png")
 
 
-def prior_comparison(table, paths):
+def prior_comparison(table: pd.DataFrame, paths: config.Paths) -> None:
+    """Prior portfolios and the portfolios built on them."""
     priors = list(table["Prior"].unique())
     variants = list(table["Variant"].unique())
     fig, ax = plt.subplots(figsize=(9, 3.8))
@@ -405,7 +433,8 @@ def prior_comparison(table, paths):
     _save(fig, paths, "17_prior_comparison.png")
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> None:
+    """Figures stage."""
     paths.figures.mkdir(parents=True, exist_ok=True)
     panel = load_panel(paths)
     regimes = load_regimes(paths)
@@ -449,3 +478,4 @@ def run(paths=config.PATHS):
         pd.read_csv(paths.tables / "window_robustness.csv", index_col=0), paths
     )
     prior_comparison(pd.read_csv(paths.tables / "prior_comparison.csv"), paths)
+    log.info("figures written to %s", paths.figures)

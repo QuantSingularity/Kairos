@@ -1,19 +1,33 @@
+"""Regime-conditional SHAP importance."""
+
+import logging
+from collections.abc import Sequence
+
 import numpy as np
 import pandas as pd
 import shap
-from xgboost import XGBRegressor
-
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_features, load_panel
-from kairos.models.forecasting import asset_frame, feature_columns, forward_targets
+from kairos.models.dataset import (
+    asset_frame,
+    design_matrix,
+    feature_columns,
+    forward_targets,
+)
+from xgboost import XGBRegressor
+
+log = logging.getLogger(__name__)
 
 
-def regime_shap(asset, F, log_price, seed=config.SEED):
+def regime_shap(
+    asset: str, F: pd.DataFrame, log_price: pd.Series, seed: int = config.SEED
+) -> pd.DataFrame:
+    """Mean absolute SHAP by feature and regime."""
     rows = asset_frame(F, asset)
     y = forward_targets(log_price.reindex(rows.index)).values
     cols = feature_columns(F, asset)
-    X = rows[cols].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
+    X = design_matrix(rows, cols)
     keep = ~np.isnan(y)
     model = XGBRegressor(
         n_estimators=150,
@@ -39,7 +53,10 @@ def regime_shap(asset, F, log_price, seed=config.SEED):
     return out.sort_values("overall", ascending=False)
 
 
-def run(paths=config.PATHS, assets=config.SHAP_ASSETS):
+def run(
+    paths: config.Paths = config.PATHS, assets: Sequence[str] = config.SHAP_ASSETS
+) -> dict[str, pd.DataFrame]:
+    """SHAP stage."""
     F = load_features(paths)
     panel = load_panel(paths)
     log_price = np.log(panel.reindex(month_end_dates(panel.index)))
@@ -48,4 +65,5 @@ def run(paths=config.PATHS, assets=config.SHAP_ASSETS):
         if asset in panel and len(asset_frame(F, asset)) > config.INITIAL_TRAIN_MONTHS:
             out[asset] = regime_shap(asset, F, log_price[asset])
             out[asset].to_csv(paths.tables / f"shap_{asset.replace('-', '_')}.csv")
+            log.info("shap computed for %s", asset)
     return out

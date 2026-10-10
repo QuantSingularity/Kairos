@@ -1,11 +1,15 @@
+"""Bootstrap and Sharpe ratio statistics."""
+
 import numpy as np
 import pandas as pd
+from kairos import config
 from scipy.stats import kurtosis, norm, skew
 
-from kairos import config
 
-
-def stationary_indices(n, draws, mean_block, rng):
+def stationary_indices(
+    n: int, draws: int, mean_block: float, rng: np.random.Generator
+) -> np.ndarray:
+    """Index matrix for a stationary bootstrap."""
     restart = rng.random((draws, n)) < 1.0 / mean_block
     restart[:, 0] = True
     starts = rng.integers(0, n, (draws, n))
@@ -16,7 +20,8 @@ def stationary_indices(n, draws, mean_block, rng):
     return idx
 
 
-def sharpe(x):
+def sharpe(x: np.ndarray) -> np.ndarray:
+    """Annualised Sharpe ratio of monthly excess returns."""
     sd = x.std(axis=-1, ddof=1)
     return np.where(
         sd > 0, x.mean(axis=-1) / np.where(sd > 0, sd, 1.0) * np.sqrt(12), np.nan
@@ -24,12 +29,13 @@ def sharpe(x):
 
 
 def paired_sharpe_test(
-    excess_a,
-    excess_b,
-    draws=config.BOOTSTRAP_DRAWS,
-    block=config.BOOTSTRAP_BLOCK,
-    seed=config.SEED,
-):
+    excess_a: pd.Series,
+    excess_b: pd.Series,
+    draws: int = config.BOOTSTRAP_DRAWS,
+    block: float = config.BOOTSTRAP_BLOCK,
+    seed: int = config.SEED,
+) -> dict[str, float]:
+    """Paired bootstrap test of a Sharpe ratio difference."""
     df = pd.concat([excess_a, excess_b], axis=1, keys=["a", "b"]).dropna()
     n = len(df)
     xa, xb = df["a"].values, df["b"].values
@@ -51,7 +57,10 @@ def paired_sharpe_test(
 EULER_GAMMA = 0.5772156649015329
 
 
-def deflated_sharpe(excess, n_trials, sr_var):
+def deflated_sharpe(
+    excess: np.ndarray | pd.Series, n_trials: int, sr_var: float
+) -> dict[str, float]:
+    """Deflated Sharpe ratio allowing for the number of trials."""
     x = np.asarray(excess, dtype=float)
     x = x[~np.isnan(x)]
     n = len(x)

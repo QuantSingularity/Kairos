@@ -1,9 +1,18 @@
+"""PowerPoint deck built from the result tables and figures."""
+
+import logging
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+from kairos import config
+from kairos.reporting.findings import findings
+from kairos.reporting.results import load_results
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.util import Inches, Pt
 
-from kairos import config
-from kairos.reporting.analysis import findings, load_results
+log = logging.getLogger(__name__)
 
 BG, PANEL, INK, MUTED, ACCENT = (
     RGBColor(0x0B, 0x0F, 0x17),
@@ -13,9 +22,21 @@ BG, PANEL, INK, MUTED, ACCENT = (
     RGBColor(0x3D, 0xD6, 0xC6),
 )
 W, H = Inches(13.333), Inches(7.5)
+BULLET_X, BULLET_W = Inches(7.6), Inches(5.2)
 
 
-def _text(slide, text, x, y, w, h, size=18, color=INK, bold=False):
+def _text(
+    slide: Any,
+    text: str | list[str],
+    x: Any,
+    y: Any,
+    w: Any,
+    h: Any,
+    size: int = 18,
+    color: Any = INK,
+    bold: bool = False,
+) -> Any:
+    """Add a text box."""
     box = slide.shapes.add_textbox(x, y, w, h)
     frame = box.text_frame
     frame.word_wrap = True
@@ -32,7 +53,8 @@ def _text(slide, text, x, y, w, h, size=18, color=INK, bold=False):
     return box
 
 
-def _slide(prs, title):
+def _slide(prs: Any, title: str) -> Any:
+    """Add a blank slide with a title."""
     s = prs.slides.add_slide(prs.slide_layouts[6])
     s.background.fill.solid()
     s.background.fill.fore_color.rgb = BG
@@ -46,7 +68,8 @@ def _slide(prs, title):
     return s
 
 
-def _image(slide, path, x, y, w):
+def _image(slide: Any, path: Path, x: Any, y: Any, w: Any) -> None:
+    """Add a picture on a white panel when the file exists."""
     if path.exists():
         panel = slide.shapes.add_shape(
             1, x - Inches(0.1), y - Inches(0.1), w + Inches(0.2), Inches(4.9)
@@ -57,7 +80,10 @@ def _image(slide, path, x, y, w):
         slide.shapes.add_picture(str(path), x, y, width=w)
 
 
-def _table(slide, df, x, y, w, size=12):
+def _table(
+    slide: Any, df: pd.DataFrame, x: Any, y: Any, w: Any, size: int = 12
+) -> None:
+    """Add a formatted table."""
     rows, cols = len(df) + 1, len(df.columns) + 1
     tbl = slide.shapes.add_table(rows, cols, x, y, w, Inches(0.4) * rows).table
     heads = [""] + list(df.columns)
@@ -78,7 +104,8 @@ def _table(slide, df, x, y, w, size=12):
                 p.font.bold = i == 0
 
 
-def _title_slide(prs):
+def _title_slide(prs: Any) -> None:
+    """Add the opening slide."""
     s = prs.slides.add_slide(prs.slide_layouts[6])
     s.background.fill.solid()
     s.background.fill.fore_color.rgb = BG
@@ -95,11 +122,19 @@ def _title_slide(prs):
     )
 
 
-def _bullets(slide, lines, x=Inches(7.6), w=Inches(5.2), size=18):
+def _bullets(
+    slide: Any,
+    lines: list[str],
+    x: Any = BULLET_X,
+    w: Any = BULLET_W,
+    size: int = 18,
+) -> None:
+    """Add a bullet list."""
     _text(slide, lines, x, Inches(1.8), w, Inches(4.5), size)
 
 
-def _diagnosis_lines(r):
+def _diagnosis_lines(r: dict[str, Any]) -> list[str]:
+    """Bullets for the diagnosis slide."""
     lines = []
     link = r["regime_link"]
     spy = link[link["Asset"] == "SPY"].set_index("Window")
@@ -115,11 +150,16 @@ def _diagnosis_lines(r):
     return lines
 
 
-def build(paths=config.PATHS):
+def build(paths: config.Paths = config.PATHS) -> Any:
+    """Assemble the presentation."""
     r = load_results(paths)
     f = findings(r)
     sm = r["summary"]
-    fig = lambda n: paths.figures / n
+
+    def fig(n: str) -> Path:
+        """Path of a generated figure."""
+        return paths.figures / n
+
     prs = Presentation()
     prs.slide_width, prs.slide_height = W, H
     _title_slide(prs)
@@ -190,7 +230,8 @@ def build(paths=config.PATHS):
     skill = r["skill_period"]
     lr = r["lstm_repair"]
 
-    def r2(name, period):
+    def r2(name: str, period: str) -> float:
+        """Mean R2 for one forecast and period."""
         row = skill[(skill["Forecast"] == name) & (skill["Period"] == period)]
         return float(row["MeanR2OOS"].iloc[0]) if len(row) else float("nan")
 
@@ -317,8 +358,10 @@ def build(paths=config.PATHS):
     return prs
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> Path:
+    """Deck stage."""
     out = paths.reports / "Kairos_Deck.pptx"
     paths.reports.mkdir(parents=True, exist_ok=True)
     build(paths).save(out)
+    log.info("deck written to %s", out)
     return out

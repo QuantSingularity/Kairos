@@ -1,19 +1,24 @@
+"""Pooled cross-asset forecasts."""
+
 import numpy as np
 import pandas as pd
-
 from kairos import config
-from kairos.models.forecasting import (
+from kairos.models.dataset import (
     SHARED_FEATURES,
     asset_frame,
+    design_matrix,
     forward_targets,
     historical_mean,
-    make_model,
 )
+from kairos.models.walk_forward import make_model
 
 POOLED_SPEC = {"pooled_ridge": "ridge", "pooled_xgb": "xgb"}
 
 
-def long_panel(F, log_price, assets):
+def long_panel(
+    F: pd.DataFrame, log_price: pd.DataFrame, assets: list[str]
+) -> pd.DataFrame:
+    """Stack assets into one long panel of deviations."""
     frames = []
     for a in assets:
         rows = asset_frame(F, a)
@@ -34,11 +39,18 @@ def long_panel(F, log_price, assets):
     return panel.reset_index()
 
 
-def pooled_forecasts(F, log_price, assets, seed=config.SEED, start=None):
+def pooled_forecasts(
+    F: pd.DataFrame,
+    log_price: pd.DataFrame,
+    assets: list[str],
+    seed: int = config.SEED,
+    start: int | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Walk-forward ridge and XGBoost trained across assets."""
     start = config.INITIAL_TRAIN_MONTHS if start is None else start
     panel = long_panel(F, log_price, assets)
     feats = [c for c in panel.columns if c not in ("date", "y", "base", "pos", "asset")]
-    X = panel[feats].replace([np.inf, -np.inf], np.nan).fillna(0.0).values
+    X = design_matrix(panel, feats)
     dev = (panel["y"] - panel["base"]).values
     dates = panel["date"].values
     out = {

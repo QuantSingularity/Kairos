@@ -1,3 +1,4 @@
+import ast
 import re
 from pathlib import Path
 
@@ -35,3 +36,31 @@ def test_no_patch_log_comments():
         if re.search(r"#\s*(FIX|PATCH|HOTFIX)\b", path.read_text(encoding="utf-8")):
             offenders.append(path.name)
     assert not offenders, offenders
+
+
+def package_functions():
+    package = ROOT / "code" / "kairos"
+    for path in package.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and not node.name.startswith("__"):
+                yield path.name, node
+
+
+def test_every_package_function_has_a_docstring():
+    missing = [
+        f"{name}:{node.name}"
+        for name, node in package_functions()
+        if not ast.get_docstring(node)
+    ]
+    assert not missing, missing
+
+
+def test_every_package_function_is_annotated():
+    missing = []
+    for name, node in package_functions():
+        args = node.args.posonlyargs + node.args.args + node.args.kwonlyargs
+        args = [a for a in args if a.arg not in ("self", "cls")]
+        if node.returns is None or any(a.annotation is None for a in args):
+            missing.append(f"{name}:{node.name}")
+    assert not missing, missing

@@ -1,12 +1,15 @@
+"""Crisis-inclusive evaluation window."""
+
+import logging
 import shutil
-from contextlib import contextmanager
 
 import pandas as pd
-
 from kairos import config
 from kairos.backtest import engine
 from kairos.data.store import load_returns
 from kairos.models import forecasting
+
+log = logging.getLogger(__name__)
 
 KEEP = ("panel_daily.csv", "regimes_daily.csv", "features_monthly.csv")
 KEY_PAIRS = (
@@ -16,24 +19,15 @@ KEY_PAIRS = (
 )
 
 
-@contextmanager
-def initial_train(months):
-    old = config.INITIAL_TRAIN_MONTHS
-    config.INITIAL_TRAIN_MONTHS = months
-    try:
-        yield
-    finally:
-        config.INITIAL_TRAIN_MONTHS = old
-
-
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> pd.DataFrame:
+    """Re-run forecasts and backtest with a longer pre-2008 window."""
     alt = config.Paths(paths.results / "alt_window")
     alt.ensure()
     for name in KEEP:
         shutil.copy(paths.processed / name, alt.processed / name)
-    with initial_train(config.CRISIS_INITIAL_TRAIN):
-        forecasting.run(alt, None, 1)
-        engine.run(alt)
+    log.info("crisis window with %d initial months", config.CRISIS_INITIAL_TRAIN)
+    forecasting.run(alt, None, 1, initial_train=config.CRISIS_INITIAL_TRAIN)
+    engine.run(alt)
     main = pd.read_csv(paths.tables / "summary_metrics.csv", index_col=0)
     other = pd.read_csv(alt.tables / "summary_metrics.csv", index_col=0)
     ret = load_returns(alt)

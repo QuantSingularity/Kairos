@@ -1,12 +1,18 @@
+"""Causal feature engineering."""
+
+import logging
+
 import numpy as np
 import pandas as pd
-
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_panel, load_regimes
 
+log = logging.getLogger(__name__)
 
-def rsi(price, window=14):
+
+def rsi(price: pd.Series, window: int = 14) -> pd.Series:
+    """Relative strength index."""
     delta = price.diff()
     gain = delta.clip(lower=0).rolling(window).mean()
     loss = (-delta.clip(upper=0)).rolling(window).mean()
@@ -15,7 +21,8 @@ def rsi(price, window=14):
     return out.where(gain.notna() & loss.notna())
 
 
-def asset_features(price, spy_ret):
+def asset_features(price: pd.Series, spy_ret: pd.Series) -> pd.DataFrame:
+    """Daily technical features for one asset."""
     log_price = np.log(price)
     ret1 = log_price.diff()
     f = {}
@@ -44,7 +51,8 @@ def asset_features(price, spy_ret):
     return out
 
 
-def build_daily_features(panel):
+def build_daily_features(panel: pd.DataFrame) -> pd.DataFrame:
+    """Daily features for every asset plus VIX inputs."""
     spy_ret = np.log(panel["SPY"]).diff()
     frames = []
     for asset in config.ASSETS:
@@ -65,7 +73,8 @@ def build_daily_features(panel):
     return pd.concat(frames, axis=1).replace([np.inf, -np.inf], np.nan)
 
 
-def monthly_features(panel, regimes):
+def monthly_features(panel: pd.DataFrame, regimes: pd.DataFrame) -> pd.DataFrame:
+    """Month-end feature matrix with regime columns."""
     dates = month_end_dates(panel.index)
     daily = build_daily_features(panel)
     F = daily.reindex(dates)
@@ -74,9 +83,11 @@ def monthly_features(panel, regimes):
     return F
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> pd.DataFrame:
+    """Features stage."""
     panel = load_panel(paths)
     regimes = load_regimes(paths)
     F = monthly_features(panel, regimes)
     F.to_csv(paths.processed / "features_monthly.csv")
+    log.info("features: %d months, %d columns", *F.shape)
     return F

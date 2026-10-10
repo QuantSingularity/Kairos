@@ -1,8 +1,14 @@
+"""Stage registry and command line logic."""
+
 import argparse
+import logging
 import time
 from importlib import import_module
+from typing import Any
 
-from kairos import config
+from kairos import config, logs
+
+log = logging.getLogger(__name__)
 
 STAGE_MODULES = {
     "data": "kairos.data.loader",
@@ -23,7 +29,14 @@ STAGE_MODULES = {
 STAGES = list(STAGE_MODULES)
 
 
-def run_stage(name, paths=config.PATHS, refresh=False, assets=None, n_jobs=-1):
+def run_stage(
+    name: str,
+    paths: config.Paths = config.PATHS,
+    refresh: bool = False,
+    assets: list[str] | None = None,
+    n_jobs: int = -1,
+) -> Any:
+    """Run one stage by name."""
     if name not in STAGE_MODULES:
         raise ValueError(f"unknown stage {name}")
     module = import_module(STAGE_MODULES[name])
@@ -34,7 +47,8 @@ def run_stage(name, paths=config.PATHS, refresh=False, assets=None, n_jobs=-1):
     return module.run(paths)
 
 
-def build_parser():
+def build_parser() -> argparse.ArgumentParser:
+    """Command line parser."""
     parser = argparse.ArgumentParser(
         prog="run.py",
         description="Kairos: regime-aware portfolio intelligence pipeline",
@@ -49,13 +63,21 @@ def build_parser():
     parser.add_argument(
         "--jobs", type=int, default=-1, help="parallel workers for forecasting"
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+        help="logging verbosity",
+    )
     return parser
 
 
-def main(argv=None):
+def main(argv: list[str] | None = None) -> None:
+    """Command line entry point."""
     args = build_parser().parse_args(argv)
+    logs.configure(args.log_level)
     config.PATHS.ensure()
     for stage in STAGES if args.stage == "all" else [args.stage]:
         t0 = time.time()
         run_stage(stage, config.PATHS, args.refresh, args.assets, args.jobs)
-        print(f"{stage:<10} done in {time.time() - t0:6.1f}s")
+        log.info("stage %s finished in %.1fs", stage, time.time() - t0)

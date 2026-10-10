@@ -1,18 +1,25 @@
+"""Price download, caching, panel construction and validation."""
+
+import logging
 import time
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-
 from kairos import config
+
+log = logging.getLogger(__name__)
 
 CORE_CHECKS = [("SPY", "EFA", 0.6), ("TLT", "IEF", 0.7), ("SPY", "HYG", 0.4)]
 
 
-def cache_file(paths, ticker):
+def cache_file(paths: config.Paths, ticker: str) -> Path:
+    """Path of the cached CSV for a ticker."""
     return paths.raw / (ticker.replace("^", "").replace("-", "_") + ".csv")
 
 
-def download_ticker(ticker, start, end, retries=3):
+def download_ticker(ticker: str, start: str, end: str, retries: int = 3) -> pd.Series:
+    """Download adjusted closes for one ticker with retries."""
     import yfinance as yf
 
     last = None
@@ -34,8 +41,12 @@ def download_ticker(ticker, start, end, retries=3):
 
 
 def fetch_prices(
-    paths=config.PATHS, refresh=False, start=config.START_DATE, end=config.END_DATE
-):
+    paths: config.Paths = config.PATHS,
+    refresh: bool = False,
+    start: str = config.START_DATE,
+    end: str = config.END_DATE,
+) -> pd.DataFrame:
+    """Load cached prices, downloading missing series."""
     paths.raw.mkdir(parents=True, exist_ok=True)
     tickers = config.ASSETS + [config.VIX_TICKER, config.RF_TICKER]
     series = {}
@@ -51,7 +62,8 @@ def fetch_prices(
     return pd.DataFrame(series)
 
 
-def build_panel(raw, end=config.END_DATE):
+def build_panel(raw: pd.DataFrame, end: str = config.END_DATE) -> pd.DataFrame:
+    """Align the raw series into the daily panel."""
     raw = raw.apply(pd.to_numeric, errors="coerce").dropna(axis=1, how="all")
     raw = raw.rename(columns={config.VIX_TICKER: "VIX", config.RF_TICKER: "RF"})
     last = min(raw.index.max(), pd.Timestamp(end))
@@ -62,7 +74,10 @@ def build_panel(raw, end=config.END_DATE):
     return panel[[c for c in config.ASSETS if c in panel] + ["VIX", "RF"]]
 
 
-def month_end_dates(index, drop_partial=True):
+def month_end_dates(
+    index: pd.DatetimeIndex, drop_partial: bool = True
+) -> pd.DatetimeIndex:
+    """Last trading day of each month."""
     index = pd.DatetimeIndex(index)
     ends = pd.Series(index, index=index).groupby(index.to_period("M")).max()
     dates = pd.DatetimeIndex(ends.values)
@@ -72,7 +87,10 @@ def month_end_dates(index, drop_partial=True):
     return dates
 
 
-def validate_panel(panel, min_years=8.0):
+def validate_panel(
+    panel: pd.DataFrame, min_years: float = 8.0
+) -> tuple[pd.DataFrame, list[str]]:
+    """Quality report and the list of blocking problems."""
     rows, problems = [], []
     daily = panel.pct_change()
     for col in panel.columns:
@@ -121,7 +139,8 @@ def validate_panel(panel, min_years=8.0):
     return report, problems
 
 
-def manifest(paths=config.PATHS):
+def manifest(paths: config.Paths = config.PATHS) -> pd.DataFrame:
+    """Row counts, date ranges and hashes of the cached series."""
     import hashlib
 
     rows = []
@@ -145,7 +164,10 @@ def manifest(paths=config.PATHS):
     return pd.DataFrame(rows)
 
 
-def run(paths=config.PATHS, refresh=False):
+def run(
+    paths: config.Paths = config.PATHS, refresh: bool = False
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Data stage."""
     paths.ensure()
     panel = build_panel(fetch_prices(paths, refresh))
     manifest(paths).to_csv(paths.processed / "data_manifest.csv", index=False)
@@ -154,4 +176,10 @@ def run(paths=config.PATHS, refresh=False):
     if problems:
         raise ValueError("panel failed validation: " + "; ".join(problems))
     panel.to_csv(paths.processed / "panel_daily.csv")
+    log.info(
+        "panel: %d days, %s to %s",
+        len(panel),
+        panel.index[0].date(),
+        panel.index[-1].date(),
+    )
     return panel, report

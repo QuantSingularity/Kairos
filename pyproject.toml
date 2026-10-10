@@ -26,9 +26,28 @@ testpaths = ["code/tests"]
 pythonpath = ["code"]
 addopts = "-p no:cacheprovider"
 
-[tool.black]
+[tool.ruff]
 line-length = 88
+target-version = "py311"
+src = ["code"]
+extend-exclude = ["notebooks"]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["kairos", "tests"]
+[tool.ruff.lint.isort]
+known-first-party = ["kairos", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"code/kairos/**/models/lstm_numpy.py" = ["N803", "N806"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "code"
+packages = ["kairos"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+check_untyped_defs = true
+no_implicit_optional = true

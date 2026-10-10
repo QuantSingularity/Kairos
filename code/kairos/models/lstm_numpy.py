@@ -1,9 +1,13 @@
-import numpy as np
+"""Small LSTM regressor implemented in NumPy."""
 
+from typing import Any
+
+import numpy as np
 from kairos import config
 
 
-def sigmoid(x):
+def sigmoid(x: np.ndarray) -> np.ndarray:
+    """Numerically clipped logistic function."""
     return 1.0 / (1.0 + np.exp(-np.clip(x, -60, 60)))
 
 
@@ -12,15 +16,16 @@ class LSTMRegressor:
 
     def __init__(
         self,
-        n_features,
-        hidden_size=12,
-        seed=config.SEED,
-        lr=0.01,
-        l2=1e-4,
-        epochs=40,
-        batch_size=16,
-        patience=6,
-    ):
+        n_features: int,
+        hidden_size: int = 12,
+        seed: int = config.SEED,
+        lr: float = 0.01,
+        l2: float = 0.0001,
+        epochs: int = 40,
+        batch_size: int = 16,
+        patience: int = 6,
+    ) -> None:
+        """Initialise weights and optimiser settings."""
         self.n_features, self.H = n_features, hidden_size
         self.lr, self.l2, self.epochs, self.batch_size, self.patience = (
             lr,
@@ -42,7 +47,8 @@ class LSTMRegressor:
         self._v = {k: np.zeros_like(v) for k, v in self.params.items()}
         self._t = 0
 
-    def forward(self, X):
+    def forward(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray, Any]:
+        """Predictions, last hidden state and the cache for backprop."""
         B, T, _ = X.shape
         H, p = self.H, self.params
         h, c = np.zeros((B, H)), np.zeros((B, H))
@@ -58,7 +64,10 @@ class LSTMRegressor:
             h, c = o * tc, c_new
         return (h @ p["Wy"].T + p["by"])[:, 0], h, cache
 
-    def loss_and_grads(self, X, y):
+    def loss_and_grads(
+        self, X: np.ndarray, y: np.ndarray
+    ) -> tuple[float, dict[str, np.ndarray]]:
+        """Mean squared error loss and parameter gradients."""
         pred, h, cache = self.forward(X)
         B, H, p = len(y), self.H, self.params
         err = pred - y
@@ -83,7 +92,8 @@ class LSTMRegressor:
             dc_next = dc * f
         return 0.5 * np.mean(err**2), grads
 
-    def _adam(self, grads):
+    def _adam(self, grads: dict[str, np.ndarray]) -> None:
+        """One Adam update."""
         self._t += 1
         b1, b2 = 0.9, 0.999
         for k, p in self.params.items():
@@ -96,7 +106,14 @@ class LSTMRegressor:
                 / (np.sqrt(self._v[k] / (1 - b2**self._t)) + 1e-8)
             )
 
-    def fit(self, X, y, X_val=None, y_val=None):
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        X_val: np.ndarray | None = None,
+        y_val: np.ndarray | None = None,
+    ) -> "LSTMRegressor":
+        """Train with early stopping on validation loss."""
         rng = np.random.default_rng(self.seed)
         best, best_params, stale = np.inf, None, 0
         for _ in range(self.epochs):
@@ -121,5 +138,6 @@ class LSTMRegressor:
                 self.params[k][...] = v
         return self
 
-    def predict(self, X):
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """Predict one value per sequence."""
         return self.forward(X)[0]

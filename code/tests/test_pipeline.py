@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import pytest
-
 from kairos import config, pipeline
 from tests.fixtures import make_panel, write_raw_cache
 

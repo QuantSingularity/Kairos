@@ -1,11 +1,17 @@
+"""Frozen specification record and evaluation of new months."""
+
 import hashlib
 import json
+import logging
+from typing import Any
 
 import pandas as pd
-
 from kairos import config
 from kairos.backtest.engine import performance
+from kairos.backtest.fingerprint import source_digest
 from kairos.data.store import load_returns
+
+log = logging.getLogger(__name__)
 
 SPEC_DIRS = ("models", "features")
 SPEC_FILES = (
@@ -16,7 +22,8 @@ SPEC_FILES = (
 REQUIREMENTS = config.ROOT / "infrastructure" / "requirements.txt"
 
 
-def spec_hash(paths=config.PATHS):
+def spec_hash(paths: config.Paths = config.PATHS) -> str:
+    """Digest of the parameters and executable model code."""
     consts = {
         k: v
         for k, v in vars(config).items()
@@ -26,14 +33,18 @@ def spec_hash(paths=config.PATHS):
     files = [
         f for d in SPEC_DIRS for f in sorted((config.PACKAGE_DIR / d).glob("*.py"))
     ]
-    files += [config.PACKAGE_DIR / f for f in SPEC_FILES] + [REQUIREMENTS]
+    files += [config.PACKAGE_DIR / f for f in SPEC_FILES]
     for f in files:
         if f.exists():
-            h.update(f.read_bytes())
+            h.update(f.name.encode())
+            h.update(source_digest(f.read_text(encoding="utf-8")).encode())
+    if REQUIREMENTS.exists():
+        h.update(REQUIREMENTS.read_bytes())
     return h.hexdigest()
 
 
-def freeze(paths=config.PATHS):
+def freeze(paths: config.Paths = config.PATHS) -> dict[str, Any]:
+    """Load the freeze record or create it from the current returns."""
     path = paths.results / "freeze.json"
     if path.exists():
         return json.loads(path.read_text())
@@ -48,7 +59,8 @@ def freeze(paths=config.PATHS):
     return record
 
 
-def evaluate(paths=config.PATHS):
+def evaluate(paths: config.Paths = config.PATHS) -> pd.DataFrame:
+    """Compare the frozen record with months realised since."""
     record = freeze(paths)
     ret = load_returns(paths)
     rf = pd.read_csv(
@@ -68,6 +80,8 @@ def evaluate(paths=config.PATHS):
         ]
     )
     status.to_csv(paths.tables / "holdout_status.csv", index=False)
+    if not unchanged:
+        log.warning("specification differs from the frozen record")
     if len(new):
         rows = {}
         for n in new.columns:
@@ -81,5 +95,6 @@ def evaluate(paths=config.PATHS):
     return status
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> pd.DataFrame:
+    """Holdout stage."""
     return evaluate(paths)

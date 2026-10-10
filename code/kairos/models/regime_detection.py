@@ -1,10 +1,16 @@
+"""Walk-forward hidden Markov regime detection."""
+
+import logging
+from typing import Any
+
 import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
-from scipy.special import logsumexp
-
 from kairos import config
 from kairos.data.store import load_panel
+from scipy.special import logsumexp
+
+log = logging.getLogger(__name__)
 
 STRESS_PERIODS = {
     "2008 Global Financial Crisis": ("2008-09-01", "2009-03-31"),
@@ -21,14 +27,18 @@ CALM_PERIODS = {
 }
 
 
-def regime_inputs(panel):
+def regime_inputs(panel: pd.DataFrame) -> pd.DataFrame:
+    """Return, realised volatility and VIX inputs."""
     ret = np.log(panel["SPY"]).diff()
     return pd.DataFrame(
         {"ret": ret, "vol21": ret.rolling(21).std() * np.sqrt(252), "vix": panel["VIX"]}
     ).dropna()
 
 
-def fit_hmm(X, n_states=2, seed=config.SEED, n_init=3):
+def fit_hmm(
+    X: np.ndarray, n_states: int = 2, seed: int = config.SEED, n_init: int = 3
+) -> Any:
+    """Best of several HMM fits by log likelihood."""
     best = None
     for k in range(n_init):
         model = GaussianHMM(
@@ -50,7 +60,8 @@ def fit_hmm(X, n_states=2, seed=config.SEED, n_init=3):
     return best[1]
 
 
-def forward_filter(model, X):
+def forward_filter(model: Any, X: np.ndarray) -> np.ndarray:
+    """Filtered state probabilities using past data only."""
     log_b = model._compute_log_likelihood(X)
     log_a = np.log(np.clip(model.transmat_, 1e-300, None))
     alpha = np.empty_like(log_b)
@@ -63,11 +74,12 @@ def forward_filter(model, X):
 
 
 def walk_forward_hmm(
-    inputs,
-    min_train=config.HMM_MIN_TRAIN,
-    refit_every=config.HMM_REFIT_EVERY,
-    seed=config.SEED,
-):
+    inputs: pd.DataFrame,
+    min_train: int = config.HMM_MIN_TRAIN,
+    refit_every: int = config.HMM_REFIT_EVERY,
+    seed: int = config.SEED,
+) -> pd.Series:
+    """Filtered stress probability with yearly refits."""
     X = inputs.values
     p = np.full(len(X), np.nan)
     for start in range(min_train, len(X), refit_every):
@@ -80,13 +92,21 @@ def walk_forward_hmm(
     return pd.Series(p, index=inputs.index, name="p_stressed")
 
 
-def volatility_regime(inputs, window=252, quantile=0.8):
+def volatility_regime(
+    inputs: pd.DataFrame, window: int = 252, quantile: float = 0.8
+) -> pd.Series:
+    """Volatility percentile comparison rule."""
     vol = inputs["vol21"]
     threshold = vol.rolling(window, min_periods=60).quantile(quantile)
     return (vol > threshold).astype(float).where(threshold.notna())
 
 
-def detect(panel, min_train=config.HMM_MIN_TRAIN, refit_every=config.HMM_REFIT_EVERY):
+def detect(
+    panel: pd.DataFrame,
+    min_train: int = config.HMM_MIN_TRAIN,
+    refit_every: int = config.HMM_REFIT_EVERY,
+) -> pd.DataFrame:
+    """Daily regime labels and probabilities."""
     inputs = regime_inputs(panel)
     p = walk_forward_hmm(inputs, min_train, refit_every)
     out = pd.DataFrame({"p_stressed": p})
@@ -95,7 +115,8 @@ def detect(panel, min_train=config.HMM_MIN_TRAIN, refit_every=config.HMM_REFIT_E
     return out
 
 
-def validate(regime, periods=None):
+def validate(regime: pd.Series, periods: Any = None) -> pd.DataFrame:
+    """Share of days flagged in known stress and calm periods."""
     periods = periods or {
         **{k: (v, 1) for k, v in STRESS_PERIODS.items()},
         **{k: (v, 0) for k, v in CALM_PERIODS.items()},
@@ -115,7 +136,8 @@ def validate(regime, periods=None):
     return pd.DataFrame(rows)
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Regime stage."""
     panel = load_panel(paths)
     out = detect(panel)
     out.to_csv(paths.processed / "regimes_daily.csv")
@@ -123,4 +145,5 @@ def run(paths=config.PATHS):
     val_vol = validate(out["vol_regime"])
     merged = val_hmm.merge(val_vol, on=["Period", "Kind"], suffixes=("_hmm", "_vol"))
     merged.to_csv(paths.tables / "regime_validation.csv", index=False)
+    log.info("regimes written for %d days", len(out))
     return out, merged

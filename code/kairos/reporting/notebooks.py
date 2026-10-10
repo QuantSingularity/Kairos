@@ -1,6 +1,12 @@
-import nbformat as nbf
+"""Results notebooks generated and executed from templates."""
 
+import logging
+from pathlib import Path
+
+import nbformat as nbf
 from kairos import config
+
+log = logging.getLogger(__name__)
 
 HEADER = (
     "import sys\n"
@@ -96,12 +102,15 @@ SPECS = {
 }
 
 
-def execute(path):
+def execute(path: Path) -> bool:
+    """Execute a notebook in place when run inside the project tree."""
     if not (path.parent.parent / "code" / "kairos" / "config.py").exists():
+        log.info("skipping execution of %s outside the project tree", path.name)
         return False
     try:
         from nbclient import NotebookClient
     except ImportError:
+        log.warning("nbclient is not installed, %s left unexecuted", path.name)
         return False
     nb = nbf.read(path, as_version=4)
     NotebookClient(
@@ -114,7 +123,8 @@ def execute(path):
     return True
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> list[Path]:
+    """Notebooks stage."""
     paths.notebooks.mkdir(parents=True, exist_ok=True)
     out = []
     for name, cells in SPECS.items():

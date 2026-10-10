@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
-
 from kairos import config
 from kairos.backtest import stats, strategies
 from kairos.models import black_litterman as bl
+from kairos.models import dataset
 from kairos.models import diagnostics as dg
-from kairos.models import forecasting as fc
+from kairos.models import skill
 from tests.fixtures import make_forecasts
 
 
@@ -88,18 +88,20 @@ def test_bl_params_default_to_config_and_change_weights():
 
 def test_historical_mean_is_causal():
     y = pd.Series([1.0, 3.0, 5.0, 7.0])
-    hm = fc.historical_mean(y)
+    hm = dataset.historical_mean(y)
     assert np.isnan(hm.iloc[0]) and hm.iloc[1] == 1.0 and hm.iloc[3] == 3.0
     y2 = y.copy()
     y2.iloc[3] = 100.0
-    assert np.allclose(fc.historical_mean(y2).iloc[:3].dropna(), hm.iloc[:3].dropna())
+    assert np.allclose(
+        dataset.historical_mean(y2).iloc[:3].dropna(), hm.iloc[:3].dropna()
+    )
 
 
 def test_r2_oos_reference_values():
     target = np.array([1.0, -1.0, 2.0, 0.5])
-    assert np.isclose(fc.r2_oos(target, target, np.zeros(4)), 1.0)
-    assert np.isclose(fc.r2_oos(np.zeros(4), target, np.zeros(4)), 0.0)
-    assert fc.r2_oos(target * 3, target, np.zeros(4)) < 0
+    assert np.isclose(skill.r2_oos(target, target, np.zeros(4)), 1.0)
+    assert np.isclose(skill.r2_oos(np.zeros(4), target, np.zeros(4)), 0.0)
+    assert skill.r2_oos(target * 3, target, np.zeros(4)) < 0
 
 
 def make_forecast_frame(n=100, seed=0, always_up=False):
@@ -115,7 +117,7 @@ def make_forecast_frame(n=100, seed=0, always_up=False):
 
 def test_evaluate_reports_base_rate_and_hit_edge():
     df = make_forecast_frame(always_up=True)
-    row = fc.evaluate({"X": df}).iloc[0]
+    row = skill.evaluate({"X": df}).iloc[0]
     assert np.isclose(row["Hit_ensemble_stacked"], row["BaseRate"])
     assert np.isclose(row["HitEdge_ensemble_stacked"], 0.0)
     assert row["UpShare_stacked"] == 1.0
@@ -123,11 +125,11 @@ def test_evaluate_reports_base_rate_and_hit_edge():
 
 def test_evaluate_r2_and_dispersion_flag_overscaled_forecasts():
     df = make_forecast_frame()
-    good = fc.evaluate({"X": df}).iloc[0]
+    good = skill.evaluate({"X": df}).iloc[0]
     wild = df.copy()
     for c in config.MODELS:
         wild[c] = wild[c] * 10
-    bad = fc.evaluate({"X": wild}).iloc[0]
+    bad = skill.evaluate({"X": wild}).iloc[0]
     assert bad["R2OOS_xgb"] < good["R2OOS_xgb"]
     assert bad["Disp_xgb"] > 5 * good["Disp_xgb"] * 0.9
 

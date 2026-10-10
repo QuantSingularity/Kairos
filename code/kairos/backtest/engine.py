@@ -1,6 +1,11 @@
+"""Portfolio construction, backtest and performance tables."""
+
+import logging
+from collections.abc import Sequence
+from typing import Any
+
 import numpy as np
 import pandas as pd
-
 from kairos import config
 from kairos.backtest import strategies as st
 from kairos.backtest.stats import deflated_sharpe, paired_sharpe_test
@@ -9,14 +14,23 @@ from kairos.data.store import load_features, load_panel
 from kairos.models.black_litterman import black_litterman_weights, build_universe
 from kairos.models.forecasting import load_forecasts
 
+log = logging.getLogger(__name__)
 
-def monthly_data(panel):
+
+def monthly_data(panel: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame, pd.Series]:
+    """Month-end prices, log returns and the monthly risk-free rate."""
     dates = month_end_dates(panel.index)
     prices = panel[[a for a in config.ASSETS if a in panel]].reindex(dates)
     return prices, np.log(prices).diff(), panel["RF"].reindex(dates) / 12.0
 
 
-def portfolio_returns(weights, simple_rets, rf, cost_bps=config.COST_BPS):
+def portfolio_returns(
+    weights: pd.DataFrame,
+    simple_rets: pd.DataFrame,
+    rf: pd.Series,
+    cost_bps: float = config.COST_BPS,
+) -> pd.DataFrame:
+    """Net monthly returns after weight drift and transaction costs."""
     idx, asset_cols = simple_rets.index, [c for c in weights.columns if c != "CASH"]
     rows, prev = [], None
     for d in weights.index:
@@ -40,7 +54,8 @@ def portfolio_returns(weights, simple_rets, rf, cost_bps=config.COST_BPS):
     ).set_index("date")
 
 
-def performance(bt):
+def performance(bt: pd.DataFrame) -> dict[str, float]:
+    """Annualised return, risk and drawdown statistics."""
     net, excess = bt["net"], bt["net"] - bt["rf"]
     n = len(net)
     ann = (1 + net).prod() ** (12 / n) - 1
@@ -62,7 +77,8 @@ def performance(bt):
     }
 
 
-def regime_performance(bt, regime):
+def regime_performance(bt: pd.DataFrame, regime: pd.Series) -> pd.DataFrame:
+    """Performance statistics split by market regime."""
     r = regime.reindex(bt.index)
     rows = {"All": performance(bt)}
     for label, val in (("Calm", 0.0), ("Stressed", 1.0)):
@@ -74,7 +90,8 @@ def regime_performance(bt, regime):
     return pd.DataFrame(rows).T
 
 
-def naive_forecasts(forecasts):
+def naive_forecasts(forecasts: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Forecasts whose view is the historical mean."""
     view = config.VIEW_COLUMN
     return {
         a: df.assign(**{view: df["hist_mean"].where(df[view].notna())})
@@ -82,7 +99,13 @@ def naive_forecasts(forecasts):
     }
 
 
-def build_strategies(forecasts, log_rets, rf, regime):
+def build_strategies(
+    forecasts: dict[str, pd.DataFrame],
+    log_rets: pd.DataFrame,
+    rf: pd.Series,
+    regime: pd.Series,
+) -> tuple[dict[pd.Timestamp, list[str]], dict[str, pd.DataFrame]]:
+    """Eligible universe and target weights for every strategy."""
     universe = build_universe(forecasts, log_rets)
     excess = log_rets.sub(rf, axis=0)
     raw = config.RAW_VIEW_COLUMN
@@ -114,7 +137,8 @@ def build_strategies(forecasts, log_rets, rf, regime):
     return universe, weights
 
 
-def significance_pairs(names):
+def significance_pairs(names: list[str]) -> list[tuple[str, str]]:
+    """Strategy and benchmark pairs to test."""
     pairs = [
         (a, b) for a in ("BL_ML_Regime", "BL_ML_Regime_IC") for b in names if a != b
     ]
@@ -129,7 +153,8 @@ def significance_pairs(names):
     return list(dict.fromkeys(pairs))
 
 
-def deflated_table(excess):
+def deflated_table(excess: pd.DataFrame) -> pd.DataFrame:
+    """Deflated Sharpe ratios for the Kairos variants."""
     pool = [n for n in list(config.KAIROS) + list(config.ABLATIONS) if n in excess]
     monthly = {n: excess[n].mean() / excess[n].std(ddof=1) for n in pool}
     sr_var = float(np.var(list(monthly.values()), ddof=1)) if len(pool) > 1 else 0.0
@@ -149,7 +174,10 @@ PERIOD_PAIRS = [
 ]
 
 
-def period_tables(main, excess):
+def period_tables(
+    main: dict[str, pd.DataFrame], excess: pd.DataFrame
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Performance and significance by sub-period."""
     cut = pd.Timestamp(config.HOLDOUT_START)
     parts = (("development", lambda i: i < cut), ("holdout", lambda i: i >= cut))
     rows = {}
@@ -180,7 +208,13 @@ def period_tables(main, excess):
     return table, pd.DataFrame(tests)
 
 
-def run_backtest(forecasts, panel, regime, cost_grid=config.COST_GRID):
+def run_backtest(
+    forecasts: dict[str, pd.DataFrame],
+    panel: pd.DataFrame,
+    regime: pd.Series,
+    cost_grid: Sequence[float] = config.COST_GRID,
+) -> dict[str, Any]:
+    """Run every strategy and collect the result tables."""
     _, log_rets, rf = monthly_data(panel)
     simple = np.expm1(log_rets)
     universe, weights = build_strategies(forecasts, log_rets, rf, regime)
@@ -227,7 +261,8 @@ def run_backtest(forecasts, panel, regime, cost_grid=config.COST_GRID):
     }
 
 
-def run(paths=config.PATHS):
+def run(paths: config.Paths = config.PATHS) -> dict[str, Any]:
+    """Backtest stage: write tables, returns and weights."""
     panel = load_panel(paths)
     F = load_features(paths)
     out = run_backtest(load_forecasts(paths), panel, F["regime"])
@@ -249,4 +284,5 @@ def run(paths=config.PATHS):
     ).to_csv(paths.processed / "backtest_rf.csv")
     for name in ("BL_ML_Regime", "BL_ML_Regime_IC", "BL_ML_NoRegime"):
         out["weights"][name].to_csv(paths.processed / f"weights_{name}.csv")
+    log.info("backtest finished for %d strategies", len(out["returns"]))
     return out
