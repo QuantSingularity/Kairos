@@ -1,4 +1,5 @@
 import numpy as np
+
 from kairos.models.lstm_numpy import LSTMRegressor
 
 

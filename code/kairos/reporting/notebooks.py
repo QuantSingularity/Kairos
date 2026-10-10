@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import nbformat as nbf
+
 from kairos import config
 
 log = logging.getLogger(__name__)

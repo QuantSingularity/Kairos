@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 import pytest
+
 from kairos import config
 from kairos.backtest import engine, holdout
 from kairos.backtest import strategies as st

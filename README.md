@@ -266,7 +266,7 @@ To install the package in editable mode, run `pip install -e .` from the project
 
 ## Code quality
 
-CI runs `ruff check .`, `ruff format --check code scripts`, `mypy` and the test suite. Install the tools with `pip install -r infrastructure/requirements-dev.txt`. Every function in the package has a short docstring and type hints, and a test enforces both. Run any stage with `--log-level DEBUG` for more detail.
+CI runs `ruff check .`, `ruff format --check code scripts`, `mypy` and the test suite. Install the tools with `pip install -r infrastructure/requirements-dev.txt`. Every function in the package has a short docstring and type hints, and a test enforces both. Run any stage with `--log-level DEBUG` for more detail. Run `scripts/check.sh` to reproduce the CI checks locally, or `scripts/check.sh --fix` to apply the lint and format fixes first. Import order follows ruff with `kairos` and `tests` as first-party, so editors that run their own import sorter should be pointed at the ruff settings in `pyproject.toml`.
 
 The frozen specification is fingerprinted from the parsed code, so comments, docstrings, type hints and formatting changes do not alter it. Any change to the executable logic or to a parameter does. The evaluation window shift is passed to the forecasting stage as an argument, so no stage modifies global configuration.
 

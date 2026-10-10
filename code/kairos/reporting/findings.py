@@ -4,6 +4,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from kairos import config
 from kairos.reporting.results import describe_diff, require_pair
 

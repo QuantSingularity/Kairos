@@ -5,12 +5,13 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
-from kairos import config
-from kairos.reporting.findings import findings
-from kairos.reporting.results import load_results
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.util import Inches, Pt
+
+from kairos import config
+from kairos.reporting.findings import findings
+from kairos.reporting.results import load_results
 
 log = logging.getLogger(__name__)
 

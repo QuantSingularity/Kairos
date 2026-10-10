@@ -2,8 +2,9 @@
 
 import numpy as np
 import pandas as pd
-from kairos import config
 from scipy.stats import kurtosis, norm, skew
+
+from kairos import config
 
 
 def stationary_indices(

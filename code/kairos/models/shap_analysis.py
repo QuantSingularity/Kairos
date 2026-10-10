@@ -6,6 +6,8 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 import shap
+from xgboost import XGBRegressor
+
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_features, load_panel
@@ -15,7 +17,6 @@ from kairos.models.dataset import (
     feature_columns,
     forward_targets,
 )
-from xgboost import XGBRegressor
 
 log = logging.getLogger(__name__)
 

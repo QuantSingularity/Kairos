@@ -4,8 +4,9 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from kairos import config
 from scipy.optimize import nnls
+
+from kairos import config
 
 CONVEX_PENALTY = 1e3
 

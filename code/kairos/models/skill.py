@@ -4,9 +4,10 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from scipy.stats import spearmanr
+
 from kairos import config
 from kairos.models.dataset import historical_mean
-from scipy.stats import spearmanr
 
 
 def r2_oos(pred: Any, target: Any, benchmark: Any) -> float:

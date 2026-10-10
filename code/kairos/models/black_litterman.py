@@ -4,9 +4,10 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
-from kairos import config
 from scipy.optimize import minimize
 from sklearn.covariance import LedoitWolf
+
+from kairos import config
 
 COLUMNS = config.ASSETS + ["CASH"]
 

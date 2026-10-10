@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 import pandas as pd
+
 from kairos import config
 from kairos.backtest.engine import performance
 from kairos.backtest.fingerprint import source_digest

@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from kairos import config
 from kairos.backtest import strategies as st
 from kairos.backtest.stats import deflated_sharpe, paired_sharpe_test

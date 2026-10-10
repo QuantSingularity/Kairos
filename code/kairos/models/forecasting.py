@@ -5,6 +5,7 @@ import logging
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_features, load_panel

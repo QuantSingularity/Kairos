@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+
 from kairos.models import regime_detection as rd
 from tests.fixtures import make_panel
 

@@ -6,6 +6,8 @@ from collections.abc import Sequence
 import numpy as np
 import pandas as pd
 from joblib import Parallel, delayed
+from scipy.stats import spearmanr
+
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_features, load_panel
@@ -20,7 +22,6 @@ from kairos.models.dataset import (
 from kairos.models.forecasting import load_forecasts
 from kairos.models.skill import r2_oos
 from kairos.models.walk_forward import walk_forward_lstm, walk_forward_sklearn
-from scipy.stats import spearmanr
 
 log = logging.getLogger(__name__)
 

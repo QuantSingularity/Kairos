@@ -6,9 +6,10 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from hmmlearn.hmm import GaussianHMM
+from scipy.special import logsumexp
+
 from kairos import config
 from kairos.data.store import load_panel
-from scipy.special import logsumexp
 
 log = logging.getLogger(__name__)
 

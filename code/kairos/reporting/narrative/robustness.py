@@ -3,6 +3,7 @@
 from typing import Any
 
 import pandas as pd
+
 from kairos import config
 from kairos.reporting.results import describe_diff, pair
 

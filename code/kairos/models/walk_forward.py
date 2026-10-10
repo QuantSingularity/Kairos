@@ -4,13 +4,14 @@ from collections.abc import Sequence
 from typing import Any
 
 import numpy as np
-from kairos import config
-from kairos.models.lstm_numpy import LSTMRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import RidgeCV
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 from xgboost import XGBRegressor
+
+from kairos import config
+from kairos.models.lstm_numpy import LSTMRegressor
 
 
 def make_model(name: str, seed: int) -> Any:

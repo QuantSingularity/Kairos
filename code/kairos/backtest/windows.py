@@ -4,6 +4,7 @@ import logging
 import shutil
 
 import pandas as pd
+
 from kairos import config
 from kairos.backtest import engine
 from kairos.data.store import load_returns

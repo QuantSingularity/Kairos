@@ -1,11 +1,11 @@
 import numpy as np
 import pandas as pd
+
 from kairos import config
 from kairos.backtest import stats, strategies
 from kairos.models import black_litterman as bl
-from kairos.models import dataset
+from kairos.models import dataset, skill
 from kairos.models import diagnostics as dg
-from kairos.models import skill
 from tests.fixtures import make_forecasts
 
 

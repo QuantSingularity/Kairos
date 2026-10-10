@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from kairos import config
 from kairos.backtest import strategies as st
 from kairos.backtest.engine import (

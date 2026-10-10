@@ -4,6 +4,7 @@ import logging
 
 import numpy as np
 import pandas as pd
+
 from kairos import config
 from kairos.data.loader import month_end_dates
 from kairos.data.store import load_panel, load_regimes
