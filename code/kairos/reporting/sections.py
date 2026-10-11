@@ -29,7 +29,6 @@ def intro_section(r: dict[str, Any], f: dict[str, Any]) -> list[str]:
     """Title, question and summary."""
     return [
         "# Kairos: Regime-Aware Portfolio Intelligence",
-        "Track: Machine Learning (Deep Learning) Investment Strategies, Topic 2: Portfolio Allocation.",
         "## 1. Research Question",
         "Does a machine learning and deep learning driven approach to portfolio allocation, augmented with market regime awareness, "
         "produce statistically and economically meaningful improvements in risk-adjusted returns over classical allocation methods, "
